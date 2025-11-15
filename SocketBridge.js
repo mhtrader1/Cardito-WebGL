@@ -163,39 +163,75 @@ window.Web3Bridge = {};
 // getEip1193Provider  (MetaMask OR WalletConnect)
 // -----------------------------------------------
 async function getEip1193Provider(chainId) {
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const ua = navigator.userAgent || "";
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
   const hasInjected = typeof window.ethereum !== "undefined";
 
-  // 1) اگر کیف‌پول اینجکت شده (MetaMask, Trust, Rabby ...) هست، همان را استفاده کن
-  if (!isMobile && hasInjected) {
-    console.log("[Web3Bridge] Using injected provider (desktop)");
+  // -----------------------------
+  // 1) ALWAYS use injected if exists (desktop + mobile)
+  // -----------------------------
+  if (hasInjected) {
+    console.log("[Web3Bridge] Using injected provider");
     return window.ethereum;
   }
 
-  // 2) اگر روی موبایل هستیم و WalletConnect Provider لود شده
-  // WalletConnect (only when no injected wallet AND mobile)
-  if (isMobile && window.WalletConnectEthereumProvider) {
+  // -----------------------------
+  // 2) Detect WalletConnect UMD (2 possible locations)
+  // -----------------------------
+  const WC_Global =
+    globalThis["@walletconnect/ethereum-provider"]?.EthereumProvider ||
+    globalThis.WalletConnectEthereumProvider ||
+    window.WalletConnectEthereumProvider;
 
-      const EthereumProvider = window.WalletConnectEthereumProvider;
-      const projectId = window.CARDITO_WC_PROJECT_ID || "7a03ac67d724cd7a88e72da1ec30c7f6";
-
-      console.log("[Web3Bridge] Using WalletConnect v2 provider with projectId:", projectId);
-
-      const cid = parseInt(chainId || 1, 10); // chainId from PayStable or registration
-
-      // Initialize WC provider
-      const wc = await EthereumProvider.init({
-          projectId,
-          chains: [cid],      // ← actual chain required
-          optionalChains: [cid],
-          showQrModal: false  // MUST be false on mobile → enables deep link
-      });
-
-      return wc;
+  if (!WC_Global) {
+    console.error("[Web3Bridge] ❌ WC provider not found in globals");
+    throw new Error("No Web3 provider available");
   }
 
-  // 3) هیچ providerای در دسترس نیست
-  throw new Error("No Web3 provider available (MetaMask or WalletConnect)");
+  const projectId =
+    window.CARDITO_WC_PROJECT_ID ||
+    "7a03ac67d724cd7a88e72da1ec30c7f6";
+
+  const cid = parseInt(chainId || 1);
+
+  // -----------------------------
+  // 3) MOBILE BROWSER → show modal (QR + deeplink)
+  // -----------------------------
+  if (isMobile) {
+    console.log("[Web3Bridge] Initializing WalletConnect (MOBILE)");
+
+    const wc = await WC_Global.init({
+      projectId,
+      chains: [cid],
+      optionalChains: [cid],
+      showQrModal: true,          // ← مهم‌ترین بخش
+      enableMobileLinks: true,    // ← WC v2: پاسخی برای دیپ‌لینک
+      metadata: {
+        name: "Cardito Game",
+        description: "Cardito WalletConnect Integration",
+        url: "https://cardito.app",
+        icons: ["https://cardito.app/logo.png"]
+      }
+    });
+
+    console.log("[Web3Bridge] WC ready (mobile)");
+    return wc;
+  }
+
+  // -----------------------------
+  // 4) DESKTOP → WC with QR modal
+  // -----------------------------
+  console.log("[Web3Bridge] WC on desktop");
+
+  const wcDesktop = await WC_Global.init({
+    projectId,
+    chains: [cid],
+    optionalChains: [cid],
+    showQrModal: true,
+    enableMobileLinks: false
+  });
+
+  return wcDesktop;
 }
 
 // ========================================================
