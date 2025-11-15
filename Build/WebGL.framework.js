@@ -5050,7 +5050,7 @@ var ASM_CONSTS = {
             showQrModal: true,
             enableMobileLinks: true
           });
-  
+          await wc.connect();
           const accounts = await wc.request({ method: "eth_requestAccounts" });
           SendMessage(gameObjectName, "OnWeb3Address", accounts[0]);
   
@@ -5100,7 +5100,7 @@ var ASM_CONSTS = {
             showQrModal: true,
             enableMobileLinks: true
           });
-  
+          await wc.connect();
           const accounts = await wc.request({ method: "eth_requestAccounts" });
           const sig = await wc.request({
             method: "personal_sign",
