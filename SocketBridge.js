@@ -167,8 +167,8 @@ async function getEip1193Provider(chainId) {
   const hasInjected = typeof window.ethereum !== "undefined";
 
   // 1) اگر کیف‌پول اینجکت شده (MetaMask, Trust, Rabby ...) هست، همان را استفاده کن
-  if (hasInjected) {
-    console.log("[Web3Bridge] Using injected provider (window.ethereum)");
+  if (!isMobile && hasInjected) {
+    console.log("[Web3Bridge] Using injected provider (desktop)");
     return window.ethereum;
   }
 
