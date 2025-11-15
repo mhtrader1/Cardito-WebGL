@@ -173,21 +173,25 @@ async function getEip1193Provider(chainId) {
   }
 
   // 2) اگر روی موبایل هستیم و WalletConnect Provider لود شده
-  if (isMobile && globalThis["@walletconnect/ethereum-provider"]) {
-    const EthereumProvider = globalThis["@walletconnect/ethereum-provider"].EthereumProvider;
-    const projectId = window.CARDITO_WC_PROJECT_ID || "7a03ac67d724cd7a88e72da1ec30c7f6";
+  // WalletConnect (only when no injected wallet AND mobile)
+  if (isMobile && window.WalletConnectEthereumProvider) {
 
-    console.log("[Web3Bridge] Using WalletConnect v2 provider with projectId:", projectId);
+      const EthereumProvider = window.WalletConnectEthereumProvider;
+      const projectId = window.CARDITO_WC_PROJECT_ID || "7a03ac67d724cd7a88e72da1ec30c7f6";
 
-    const cid = parseInt(chainId || 1, 10);   // chainId را از PayStable بگیر
+      console.log("[Web3Bridge] Using WalletConnect v2 provider with projectId:", projectId);
 
-    const wc = await EthereumProvider.init({
-      projectId,
-      chains: [cid],   // ← زنجیره واقعی پرداخت
-      showQrModal: true
-    });
+      const cid = parseInt(chainId || 1, 10); // chainId from PayStable or registration
 
-    return wc;
+      // Initialize WC provider
+      const wc = await EthereumProvider.init({
+          projectId,
+          chains: [cid],      // ← actual chain required
+          optionalChains: [cid],
+          showQrModal: false  // MUST be false on mobile → enables deep link
+      });
+
+      return wc;
   }
 
   // 3) هیچ providerای در دسترس نیست
