@@ -94,20 +94,32 @@ window.CarditoSocket_Close = function () {
 // ========================================================
 // 🪙 Web3 برای متامسک (فقط مرورگر)
 // ========================================================
-window.Web3_GetAddress = async function () {
+window.Web3_GetAddress = async function (gameObjectName) {
   try {
     const provider = await getEip1193Provider();
+
+    // درخواست آدرس از injected یا WalletConnect
     const accounts = await provider.request({ method: "eth_requestAccounts" });
     const address = accounts[0];
+
     console.log("[Web3Bridge] ✅ Address:", address);
-    if (typeof sendMessage === "function")
-      sendMessage("Web3Manager", "OnWeb3Address", address);
+
+    // ➜ کال‌بک درست: RegisterManager.OnWeb3Address
+    if (typeof sendMessage === "function") {
+      sendMessage(gameObjectName, "OnWeb3Address", address);
+    }
   } catch (err) {
     console.error("[Web3Bridge] GetAddress error:", err);
+
+    // ➜ کال‌بک خطا: RegisterManager.OnWeb3Error
+    if (typeof sendMessage === "function") {
+      const msg = err?.message || "Wallet connection failed";
+      sendMessage(gameObjectName, "OnWeb3Error", msg);
+    }
   }
 };
 
-window.Web3_SignMessage = async function (msg) {
+window.Web3_SignMessage = async function (gameObjectName, msg) {
   try {
     const provider = await getEip1193Provider();
 
@@ -122,17 +134,18 @@ window.Web3_SignMessage = async function (msg) {
     });
 
     console.log("[Web3Bridge] ✍️ Signed:", signature);
+
+    // ➜ کال‌بک درست برای RegisterManager.OnWeb3Signature
     if (typeof sendMessage === "function") {
-      sendMessage("Web3Manager", "OnWeb3Signed", signature);
+      sendMessage(gameObjectName, "OnWeb3Signature", signature);
     }
   } catch (err) {
     console.error("[Web3Bridge] SignMessage error:", err);
+
+    // ➜ کال‌بک درست برای RegisterManager.OnWeb3Error
     if (typeof sendMessage === "function") {
-      sendMessage(
-        "Web3Manager",
-        "OnWeb3SignError",
-        err && err.message ? err.message : String(err)
-      );
+      const msg = err && err.message ? err.message : String(err);
+      sendMessage(gameObjectName, "OnWeb3Error", msg);
     }
   }
 };
