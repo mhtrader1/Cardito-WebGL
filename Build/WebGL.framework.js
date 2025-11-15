@@ -2086,13 +2086,13 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  5354912: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
- 5354973: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
- 5355037: function() {return Module.webglContextAttributes.powerPreference;},  
- 5355095: function() {Module['emscripten_get_now_backup'] = performance.now;},  
- 5355150: function($0) {performance.now = function() { return $0; };},  
+  5354960: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
+ 5355021: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
+ 5355085: function() {return Module.webglContextAttributes.powerPreference;},  
+ 5355143: function() {Module['emscripten_get_now_backup'] = performance.now;},  
  5355198: function($0) {performance.now = function() { return $0; };},  
- 5355246: function() {performance.now = Module['emscripten_get_now_backup'];}
+ 5355246: function($0) {performance.now = function() { return $0; };},  
+ 5355294: function() {performance.now = Module['emscripten_get_now_backup'];}
 };
 
 
@@ -5012,43 +5012,107 @@ var ASM_CONSTS = {
           requestOptions.timeout = timeout;
   	}
 
-  async function _Web3_GetAddress(ptr) {
-      const gameObjectName = UTF8ToString(ptr); // 🔧 تبدیل pointer به string
-      console.log("[Web3Bridge] Request address for GameObject:", gameObjectName);
-      if (typeof window.ethereum === "undefined") {
-        SendMessage(gameObjectName, "OnWeb3Error", "No wallet found");
-        return;
-      }
+  function _Web3_GetAddress(ptr) {
+      const gameObjectName = UTF8ToString(ptr);
   
-      try {
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        const address = accounts[0];
-        console.log("[Web3Bridge] Got address:", address);
-        SendMessage(gameObjectName, "OnWeb3Address", address);
-      } catch (err) {
-        console.error("[Web3Bridge] Error:", err);
-        SendMessage(gameObjectName, "OnWeb3Error", err.message);
-      }
+      (async () => {
+        console.log("[Web3Bridge] GetAddress for:", gameObjectName);
+  
+        const ua = navigator.userAgent || "";
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+  
+        if (typeof window.ethereum !== "undefined") {
+          try {
+            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+            SendMessage(gameObjectName, "OnWeb3Address", accounts[0]);
+          } catch (err) {
+            SendMessage(gameObjectName, "OnWeb3Error", err.message || "Request rejected");
+          }
+          return;
+        }
+  
+        const WCProvider =
+          (globalThis["@walletconnect/ethereum-provider"] &&
+            globalThis["@walletconnect/ethereum-provider"].EthereumProvider) ||
+          globalThis.WalletConnectEthereumProvider ||
+          window.WalletConnectEthereumProvider;
+  
+        if (!WCProvider) {
+          SendMessage(gameObjectName, "OnWeb3Error", "No wallet found");
+          return;
+        }
+  
+        try {
+          const wc = await WCProvider.init({
+            projectId: window.CARDITO_WC_PROJECT_ID || "7a03ac67d724cd7a88e72da1ec30c7f6",
+            chains: [146],
+            optionalChains: [146],
+            showQrModal: true,
+            enableMobileLinks: true
+          });
+  
+          const accounts = await wc.request({ method: "eth_requestAccounts" });
+          SendMessage(gameObjectName, "OnWeb3Address", accounts[0]);
+  
+        } catch (err) {
+          SendMessage(gameObjectName, "OnWeb3Error", err.message || "WalletConnect error");
+        }
+      })();
     }
 
-  async function _Web3_SignMessage(ptr, msgPtr) {
+  function _Web3_SignMessage(ptr, msgPtr) {
       const gameObjectName = UTF8ToString(ptr);
       const message = UTF8ToString(msgPtr);
-      console.log("[Web3Bridge] Sign request for:", gameObjectName);
   
-      try {
-        const accounts = await window.ethereum.request({ method: "eth_accounts" });
-        const from = accounts[0];
-        const signature = await window.ethereum.request({
-          method: "personal_sign",
-          params: [message, from],
-        });
-        console.log("[Web3Bridge] Signature:", signature);
-        SendMessage(gameObjectName, "OnWeb3Signature", signature);
-      } catch (err) {
-        console.error("[Web3Bridge] Sign error:", err);
-        SendMessage(gameObjectName, "OnWeb3Error", err.message);
-      }
+      (async () => {
+        console.log("[Web3Bridge] SignMessage:", message);
+  
+        if (typeof window.ethereum !== "undefined") {
+          try {
+            const accounts = await window.ethereum.request({ method: "eth_accounts" });
+            const sig = await window.ethereum.request({
+              method: "personal_sign",
+              params: [message, accounts[0]]
+            });
+            SendMessage(gameObjectName, "OnWeb3Signature", sig);
+          } catch (err) {
+            SendMessage(gameObjectName, "OnWeb3Error", err.message || "Sign error");
+          }
+          return;
+        }
+  
+        const WCProvider =
+          (globalThis["@walletconnect/ethereum-provider"] &&
+            globalThis["@walletconnect/ethereum-provider"].EthereumProvider) ||
+          globalThis.WalletConnectEthereumProvider ||
+          window.WalletConnectEthereumProvider;
+  
+        if (!WCProvider) {
+          SendMessage(gameObjectName, "OnWeb3Error", "Wallet not found");
+          return;
+        }
+  
+        try {
+          const wc = await WCProvider.init({
+            projectId: window.CARDITO_WC_PROJECT_ID || "7a03ac67d724cd7a88e72da1ec30c7f6",
+            chains: [146],
+            optionalChains: [146],
+            showQrModal: true,
+            enableMobileLinks: true
+          });
+  
+          const accounts = await wc.request({ method: "eth_requestAccounts" });
+          const sig = await wc.request({
+            method: "personal_sign",
+            params: [message, accounts[0]]
+          });
+  
+          SendMessage(gameObjectName, "OnWeb3Signature", sig);
+  
+        } catch (err) {
+          SendMessage(gameObjectName, "OnWeb3Error", err.message || "WC sign error");
+        }
+      })();
     }
 
   function ___assert_fail(condition, filename, line, func) {

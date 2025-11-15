@@ -36,30 +36,161 @@
     </style>
 
     <!-- ======================================================
-         🔌 Web3 prerequisites — MUST be before SocketBridge.js
+         🔌 Web3 prerequisites
          ====================================================== -->
 
-    <!-- Socket.IO -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-
-    <!-- Ethers.js (for MetaMask + WalletConnect) -->
     <script src="ethers.js"></script>
-
-    <!-- WalletConnect v2 Provider -->
     <script src="https://unpkg.com/@walletconnect/ethereum-provider/dist/index.umd.js"></script>
 
-    <!-- Global WC config -->
     <script>
       window.CARDITO_WC_PROJECT_ID = "7a03ac67d724cd7a88e72da1ec30c7f6";
-      console.log("[index.html] WalletConnect ProjectId =", window.CARDITO_WC_PROJECT_ID);
     </script>
 
-    <!-- Cardito WebGL ↔ JS bridge -->
     <script src="SocketBridge.js"></script>
 
-  </head>
+    <!-- ================================
+         ⭐ Cardito Cinematic Loader
+         ================================= -->
+<style>
+  #cardito-loader {
+    position: fixed;
+    inset: 0;
+    background: white;
+    z-index: 999999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
 
-  <body>
+  .letter {
+    position: absolute;
+    width: 120px;
+    opacity: 0;
+    top: -20%;
+    transition:
+      top 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+      left 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+      opacity 0.5s ease;
+  }
+
+  @media (max-width:600px){
+    .letter { width:80px; }
+  }
+</style>
+
+<div id="cardito-loader">
+  <img class="letter" id="L1" src="1.png">
+  <img class="letter" id="L2" src="2.png">
+  <img class="letter" id="L3" src="3.png">
+  <img class="letter" id="L4" src="4.png">
+  <img class="letter" id="L5" src="5.png">
+  <img class="letter" id="L6" src="6.png">
+  <img class="letter" id="L7" src="7.png">
+</div>
+
+<script>
+/* Flags برای هماهنگ‌سازی */
+window.CARDITO_ANIM_DONE = false;
+window.UNITY_READY = false;
+
+/* ⭐ جای اولیه هر حرف روی خط افقی */
+const pos = { L1:22, L2:32, L3:42, L4:52, L5:62, L6:72, L7:82 };
+
+/* ⭐ مرحلهٔ سقوط */
+Object.keys(pos).forEach((id,i)=>{
+  const el = document.getElementById(id);
+  el.style.left = pos[id] + "%";
+  setTimeout(()=>{
+    el.style.top = "46%";
+    el.style.opacity = "1";
+  }, 200 + i*140);
+});
+
+/* ⭐ helper: حذف به سمت داخل */
+function vanishInward(id){
+  const el = document.getElementById(id);
+  const x = parseFloat(el.style.left);
+  const inwardShift = (x < 52 ? +6 : -6);
+
+  el.style.left = (x + inwardShift) + "%";
+  el.style.opacity = "0";
+
+  setTimeout(() => {
+    el.style.display = "none";
+  }, 450);
+}
+
+/* ⭐ helper: حرکت نرم */
+function moveInward(id, amount){
+  const el = document.getElementById(id);
+  el.style.left = (pos[id] + amount) + "%";
+}
+
+/* ⭐ 1) حذف حرف وسط (۴) — فقط فید ساده */
+setTimeout(()=>{
+  const el = document.getElementById("L4");
+  el.style.transition = "opacity 0.5s ease";
+  el.style.opacity = "0";
+  setTimeout(()=> el.style.display="none", 500);
+}, 2600);
+
+/* ⭐ 2) نزدیک شدن موجی */
+setTimeout(()=>{
+  moveInward("L1",  4);
+  moveInward("L2",  4);
+  moveInward("L3",  4);
+  moveInward("L5", -4);
+  moveInward("L6", -4);
+  moveInward("L7", -4);
+}, 3000);
+
+/* ⭐ 3) حذف ۳ و ۵ */
+setTimeout(()=>{
+  vanishInward("L3");
+  vanishInward("L5");
+}, 3600);
+
+/* ⭐ 4) موج دوم حرکت */
+setTimeout(()=>{
+  moveInward("L1", 12);
+  moveInward("L2", 12);
+  moveInward("L6", -12);
+  moveInward("L7", -12);
+}, 4200);
+
+/* ⭐ 5) حذف ۲ و ۶ */
+setTimeout(()=>{
+  vanishInward("L2");
+  vanishInward("L6");
+}, 4700);
+
+/* ⭐ 6) فقط ۱ و ۷ بمانند و کنار هم قرار بگیرند */
+setTimeout(()=>{
+  moveInward("L1", 29);
+  moveInward("L7", -29);
+}, 5200);
+
+/* ⭐ 7) خروج لودر */
+setTimeout(()=>{
+  window.CARDITO_ANIM_DONE = true;
+  tryStartUnityReveal();
+}, 8000);
+
+/* ⭐ هماهنگ‌کننده */
+function tryStartUnityReveal(){
+  if (window.UNITY_READY && window.CARDITO_ANIM_DONE){
+    const loader = document.getElementById("cardito-loader");
+    loader.style.opacity = "0";
+    setTimeout(()=> loader.style.display="none", 700);
+  }
+}
+</script>
+
+    <!-- ================================
+         ⭐ Original Unity Loader
+         ================================= -->
     <div id="unity-container" class="unity-desktop">
       <canvas id="unity-canvas" width="1080" height="1920" tabindex="-1"></canvas>
 
@@ -79,10 +210,6 @@
     </div>
 
     <script>
-      // ===============================
-      // Unity UI + Mobile detection
-      // ===============================
-
       var container = document.querySelector("#unity-container");
       var canvas = document.querySelector("#unity-canvas");
       var loadingBar = document.querySelector("#unity-loading-bar");
@@ -97,10 +224,11 @@
         var div = document.createElement("div");
         div.innerHTML = msg;
         warningBanner.appendChild(div);
+
         if (type == "error") div.style = "background: red; padding: 10px;";
         else {
           if (type == "warning") div.style = "background: yellow; padding: 10px;";
-          setTimeout(function () {
+          setTimeout(() => {
             warningBanner.removeChild(div);
             updateBannerVisibility();
           }, 5000);
@@ -109,7 +237,7 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/WebGL.loader.js";  // ⭐ Your original loader
+      var loaderUrl = buildUrl + "/WebGL.loader.js";
 
       var config = {
         dataUrl: buildUrl + "/WebGL.data",
@@ -122,13 +250,12 @@
         showBanner: unityShowBanner,
       };
 
-      // Mobile-specific viewport
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         var meta = document.createElement("meta");
         meta.name = "viewport";
         meta.content =
           "width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes";
-        document.getElementsByTagName("head")[0].appendChild(meta);
+        document.head.appendChild(meta);
         container.className = "unity-mobile";
         canvas.className = "unity-mobile";
       } else {
@@ -138,48 +265,44 @@
 
       loadingBar.style.display = "block";
 
-      // ==================================================
-      // Unity Loader
-      // ==================================================
+      function waitForIntro() {
+        return new Promise(resolve => {
+          if (window.CARDITO_ANIM_DONE) return resolve();
+          const interval = setInterval(() => {
+            if (window.CARDITO_ANIM_DONE) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, 100);
+        });
+      }
+
       var script = document.createElement("script");
       script.src = loaderUrl;
+
       script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          progressBarFull.style.width = 100 * progress + "%";
-        })
-          .then((unityInstance) => {
-            // Custom sendMessage wrapper
+        window.UNITY_READY = true;
+        tryStartUnityReveal();
+
+        waitForIntro().then(() => {
+          createUnityInstance(canvas, config, (progress) => {
+            progressBarFull.style.width = (progress * 100) + "%";
+          }).then((unityInstance) => {
+
             window.sendMessage = function(obj, method, param) {
-                try {
-                    unityInstance.SendMessage(obj, method, param);
-                } catch (e) {
-                    console.error("[sendMessage ERROR]", e);
-                }
+              try { unityInstance.SendMessage(obj, method, param); }
+              catch (e) { console.error("[sendMessage ERROR]", e); }
             };
 
             loadingBar.style.display = "none";
+            fullscreenButton.onclick = () => unityInstance.SetFullscreen(1);
 
-            fullscreenButton.onclick = () => {
-              unityInstance.SetFullscreen(1);
-            };
-
-            // Global instance for JS bridges
             window.unityInstance = unityInstance;
 
-            // Notify JS plugins (if needed)
-            if (typeof window.CarditoUnityReady === "function") {
-              try {
-                console.log("[index.html] Unity instance ready → CarditoUnityReady()");
-                window.CarditoUnityReady();
-              } catch (err) {
-                console.error("[index.html] CarditoUnityReady() failed:", err);
-              }
-            }
-          })
-          .catch((message) => {
-            console.error(message);
-          });
+          }).catch((msg) => console.error(msg));
+        });
       };
+
       document.body.appendChild(script);
     </script>
 
