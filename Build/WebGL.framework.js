@@ -5072,6 +5072,9 @@ var ASM_CONSTS = {
                 description: "Cardito WalletConnect",
                 url: "https://cardito.app",
                 icons: ["https://cardito.app/logo.png"]
+              },
+              redirect: {
+                universal: window.location.origin
               }
             });
   
