@@ -52,6 +52,91 @@
 
     <script src="SocketBridge.js"></script>
 
+    <!-- ===== HTML Keyboard Overlay for mobile WebGL ===== -->
+    <input id="cardito-html-input"
+           type="text"
+           style="
+             position:fixed;
+             left:50%;
+             bottom:20px;
+             transform:translateX(-50%);
+             width:80%;
+             max-width:400px;
+             height:40px;
+             padding:8px 10px;
+             font-size:16px;
+             border-radius:8px;
+             border:1px solid #ccc;
+             z-index:999999;
+             display:none;
+             background:#fff;
+             color:#000;
+           "
+           autocomplete="off"
+           autocorrect="off"
+           autocapitalize="off"
+           spellcheck="false" />
+
+    <script>
+      (function () {
+        const el = document.getElementById("cardito-html-input");
+
+        const overlay = {
+          go: null,
+          method: null,
+
+          open(goName, methodName, placeholder, currentValue) {
+            this.go = goName;
+            this.method = methodName;
+            el.placeholder = placeholder || "";
+            el.value = currentValue || "";
+            el.style.display = "block";
+
+            // کمی تأخیر برای اینکه موبایل مطمئناً کیبورد را باز کند
+            setTimeout(() => {
+              el.focus();
+              el.selectionStart = el.selectionEnd = el.value.length;
+            }, 50);
+          },
+
+          close(sendBack) {
+            el.style.display = "none";
+            if (sendBack && this.go && this.method) {
+              const val = el.value || "";
+              try {
+                if (typeof sendMessage === "function") {
+                  sendMessage(this.go, this.method, val);
+                } else if (typeof unityInstance !== "undefined" && unityInstance) {
+                  unityInstance.SendMessage(this.go, this.method, val);
+                } else if (typeof SendMessage === "function") {
+                  SendMessage(this.go, this.method, val);
+                }
+              } catch (e) {
+                console.error("[HTMLKeyboardOverlay] SendMessage error", e);
+              }
+            }
+            this.go = null;
+            this.method = null;
+          }
+        };
+
+        el.addEventListener("blur", () => overlay.close(true));
+
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            overlay.close(true);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            overlay.close(false);
+          }
+        });
+
+        // این آبجکت همان چیزی است که از C# با Application.ExternalCall صدا زده می‌شود
+        window.HTMLKeyboardOverlay = overlay;
+      })();
+    </script>
+    
     <!-- ================================
          ⭐ Cardito Cinematic Loader
          ================================= -->
