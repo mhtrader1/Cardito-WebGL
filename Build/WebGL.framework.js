@@ -2086,13 +2086,13 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  5354976: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
- 5355037: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
- 5355101: function() {return Module.webglContextAttributes.powerPreference;},  
- 5355159: function() {Module['emscripten_get_now_backup'] = performance.now;},  
- 5355214: function($0) {performance.now = function() { return $0; };},  
- 5355262: function($0) {performance.now = function() { return $0; };},  
- 5355310: function() {performance.now = Module['emscripten_get_now_backup'];}
+  5355120: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
+ 5355181: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
+ 5355245: function() {return Module.webglContextAttributes.powerPreference;},  
+ 5355303: function() {Module['emscripten_get_now_backup'] = performance.now;},  
+ 5355358: function($0) {performance.now = function() { return $0; };},  
+ 5355406: function($0) {performance.now = function() { return $0; };},  
+ 5355454: function() {performance.now = Module['emscripten_get_now_backup'];}
 };
 
 
@@ -4729,6 +4729,11 @@ var ASM_CONSTS = {
   		return Module.SystemInfo.hasWebGL;
   	}
 
+  function _JS_SystemInfo_IsMobile() 
+  	{
+  		return Module.SystemInfo.mobile;
+  	}
+
   function _JS_UnityEngineShouldQuit() {
   	return !!Module.shouldQuit;
   }
@@ -5013,6 +5018,7 @@ var ASM_CONSTS = {
   	}
 
   function _Web3_GetAddress(ptr) {
+      const cid = window.UnitySelectedChain || 1;
       const gameObjectName = UTF8ToString(ptr);
   
       (async () => {
@@ -5063,8 +5069,8 @@ var ASM_CONSTS = {
   
             g.CarditoWC = await WCProvider.init({
               projectId: window.CARDITO_WC_PROJECT_ID || "7a03ac67d724cd7a88e72da1ec30c7f6",
-              chains: [146],
-              optionalChains: [146],
+              chains: [cid],
+              optionalChains: [cid],
               showQrModal: true,
               enableMobileLinks: true,
               metadata: {
@@ -5155,11 +5161,13 @@ var ASM_CONSTS = {
             SendMessage(gameObjectName, "OnWeb3Error", "No wallet account");
             return;
           }
-  
+          
+          const cid = window.UnitySelectedChain || 1;
           const from = accounts[0];
           const sig = await g.CarditoWC.request({
             method: "personal_sign",
-            params: [message, from]
+            params: [message, from],
+            chainId: cid
           });
   
           console.log("[Web3Bridge] WC signature:", sig);
@@ -16465,6 +16473,7 @@ var asmLibraryArg = {
   "JS_SystemInfo_HasCursorLock": _JS_SystemInfo_HasCursorLock,
   "JS_SystemInfo_HasFullscreen": _JS_SystemInfo_HasFullscreen,
   "JS_SystemInfo_HasWebGL": _JS_SystemInfo_HasWebGL,
+  "JS_SystemInfo_IsMobile": _JS_SystemInfo_IsMobile,
   "JS_UnityEngineShouldQuit": _JS_UnityEngineShouldQuit,
   "JS_WebRequest_Abort": _JS_WebRequest_Abort,
   "JS_WebRequest_Create": _JS_WebRequest_Create,

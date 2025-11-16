@@ -136,7 +136,7 @@
         window.HTMLKeyboardOverlay = overlay;
       })();
     </script>
-    
+
     <!-- ================================
          ⭐ Cardito Cinematic Loader
          ================================= -->
@@ -306,6 +306,12 @@ function tryStartUnityReveal(){
       var progressBarFull = document.querySelector("#unity-progress-bar-full");
       var fullscreenButton = document.querySelector("#unity-fullscreen-button");
       var warningBanner = document.querySelector("#unity-warning");
+
+      window.UnitySelectedChain = 1; // default Ethereum
+      window.SetUnitySelectedChain = function(cid){
+        console.log("[HTML] Unity selected chain =", cid);
+        window.UnitySelectedChain = parseInt(cid);
+      };
 
       function unityShowBanner(msg, type) {
         function updateBannerVisibility() {
