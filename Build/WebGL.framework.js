@@ -5018,19 +5018,23 @@ var ASM_CONSTS = {
       (async () => {
         console.log("[Web3Bridge] GetAddress for:", gameObjectName);
   
-        const ua = navigator.userAgent || "";
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-  
+        // 1) اگر کیف‌پول inject شده (MetaMask / in-app browser)
         if (typeof window.ethereum !== "undefined") {
           try {
-            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-            SendMessage(gameObjectName, "OnWeb3Address", accounts[0]);
+            const accounts = await window.ethereum.request({
+              method: "eth_requestAccounts"
+            });
+            const addr = accounts[0];
+            console.log("[Web3Bridge] Injected address:", addr);
+            SendMessage(gameObjectName, "OnWeb3Address", addr);
           } catch (err) {
+            console.warn("[Web3Bridge] Injected error:", err);
             SendMessage(gameObjectName, "OnWeb3Error", err.message || "Request rejected");
           }
           return;
         }
   
+        // 2) WalletConnect (فقط همین‌جا INIT می‌کنیم)
         const WCProvider =
           (globalThis["@walletconnect/ethereum-provider"] &&
             globalThis["@walletconnect/ethereum-provider"].EthereumProvider) ||
@@ -5038,23 +5042,44 @@ var ASM_CONSTS = {
           window.WalletConnectEthereumProvider;
   
         if (!WCProvider) {
-          SendMessage(gameObjectName, "OnWeb3Error", "No wallet found");
+          console.error("[Web3Bridge] WC provider not found");
+          SendMessage(gameObjectName, "OnWeb3Error", "No wallet found (WalletConnect not available)");
           return;
         }
   
         try {
-          const wc = await WCProvider.init({
-            projectId: window.CARDITO_WC_PROJECT_ID || "7a03ac67d724cd7a88e72da1ec30c7f6",
-            chains: [146],
-            optionalChains: [146],
-            showQrModal: true,
-            enableMobileLinks: true
-          });
-          await wc.connect();
-          const accounts = await wc.request({ method: "eth_requestAccounts" });
-          SendMessage(gameObjectName, "OnWeb3Address", accounts[0]);
+          if (!CarditoWC) {
+            console.log("[Web3Bridge] Creating WC instance...");
+            CarditoWC = await WCProvider.init({
+              projectId: window.CARDITO_WC_PROJECT_ID || "7a03ac67d724cd7a88e72da1ec30c7f6",
+              chains: [146],
+              optionalChains: [146],
+              showQrModal: true,        // اینجا login/modal
+              enableMobileLinks: true,
+              metadata: {
+                name: "Cardito",
+                description: "Cardito WalletConnect",
+                url: "https://cardito.app",
+                icons: ["https://cardito.app/logo.png"]
+              }
+            });
   
+            console.log("[Web3Bridge] WC init done, calling connect...");
+            await CarditoWC.connect();
+            console.log("[Web3Bridge] WC connect finished");
+          } else {
+            console.log("[Web3Bridge] Reusing existing WC instance");
+          }
+  
+          const accounts = await CarditoWC.request({
+            method: "eth_requestAccounts"
+          });
+  
+          const addr = accounts[0];
+          console.log("[Web3Bridge] WC address:", addr);
+          SendMessage(gameObjectName, "OnWeb3Address", addr);
         } catch (err) {
+          console.error("[Web3Bridge] WC GetAddress error:", err);
           SendMessage(gameObjectName, "OnWeb3Error", err.message || "WalletConnect error");
         }
       })();
@@ -5067,49 +5092,57 @@ var ASM_CONSTS = {
       (async () => {
         console.log("[Web3Bridge] SignMessage:", message);
   
+        // 1) اگر کیف‌پول inject شده
         if (typeof window.ethereum !== "undefined") {
           try {
-            const accounts = await window.ethereum.request({ method: "eth_accounts" });
+            const accounts = await window.ethereum.request({
+              method: "eth_accounts"
+            });
+            const from = accounts[0];
+  
             const sig = await window.ethereum.request({
               method: "personal_sign",
-              params: [message, accounts[0]]
+              params: [message, from]
             });
+  
+            console.log("[Web3Bridge] Injected signature:", sig);
             SendMessage(gameObjectName, "OnWeb3Signature", sig);
           } catch (err) {
+            console.warn("[Web3Bridge] Injected sign error:", err);
             SendMessage(gameObjectName, "OnWeb3Error", err.message || "Sign error");
           }
           return;
         }
   
-        const WCProvider =
-          (globalThis["@walletconnect/ethereum-provider"] &&
-            globalThis["@walletconnect/ethereum-provider"].EthereumProvider) ||
-          globalThis.WalletConnectEthereumProvider ||
-          window.WalletConnectEthereumProvider;
-  
-        if (!WCProvider) {
-          SendMessage(gameObjectName, "OnWeb3Error", "Wallet not found");
+        // 2) WalletConnect – اینجا دیگر INIT یا connect نمی‌کنیم
+        if (!CarditoWC) {
+          console.error("[Web3Bridge] WC Sign called before GetAddress / connect");
+          SendMessage(gameObjectName, "OnWeb3Error", "WalletConnect not connected");
           return;
         }
   
         try {
-          const wc = await WCProvider.init({
-            projectId: window.CARDITO_WC_PROJECT_ID || "7a03ac67d724cd7a88e72da1ec30c7f6",
-            chains: [146],
-            optionalChains: [146],
-            showQrModal: true,
-            enableMobileLinks: true
+          const accounts = await CarditoWC.request({
+            method: "eth_accounts"
           });
-          await wc.connect();
-          const accounts = await wc.request({ method: "eth_requestAccounts" });
-          const sig = await wc.request({
+  
+          if (!accounts || !accounts.length) {
+            console.warn("[Web3Bridge] WC sign: no accounts");
+            SendMessage(gameObjectName, "OnWeb3Error", "No wallet account");
+            return;
+          }
+  
+          const from = accounts[0];
+  
+          const sig = await CarditoWC.request({
             method: "personal_sign",
-            params: [message, accounts[0]]
+            params: [message, from]
           });
   
+          console.log("[Web3Bridge] WC signature:", sig);
           SendMessage(gameObjectName, "OnWeb3Signature", sig);
-  
         } catch (err) {
+          console.error("[Web3Bridge] WC Sign error:", err);
           SendMessage(gameObjectName, "OnWeb3Error", err.message || "WC sign error");
         }
       })();
