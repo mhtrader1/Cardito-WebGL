@@ -151,19 +151,17 @@
     justify-content: center;
     align-items: center;
     overflow: hidden;
-    z-index: 999999;
   }
 
   .letter,
   #cardito-heart {
     position: absolute;
-    bottom: calc(50% - 40px);           /* ✅ همه از پایین روی یک خط مشترک می‌نشینند */
+    bottom: calc(50% - 40px);   /* همه روی یک خط مشترک */
     left: 50%;
-    transform: translateX(-50%);  /* فقط مرکز کردن افقی، بدون وسط‌چین عمودی */
+    transform: translateX(-50%);
     opacity: 0;
     width: auto;
     height: auto;
-    
   }
 
   #cardito-heart {
@@ -197,19 +195,27 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 
 <script>
-  // فلگ‌ها برای هماهنگ‌سازی با Unity
+  // فلگ‌ها
   window.CARDITO_ANIM_DONE = false;
-  window.UNITY_READY = window.UNITY_READY || false;
+  window.UnityLoadProgress = window.UnityLoadProgress || 0; // از سمت Unity ست می‌شود
 
   const CARDITO_LETTER_IDS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7"];
   let HEART_BEATS = 0;
 
-  // تابع گلوبال برای خروج لودر، تا خطای undefined نده
+  // فقط وقتی سه شرط اوکی شد، لودر محو می‌شود
   function tryStartUnityReveal() {
     const loader = document.getElementById("cardito-loader");
     if (!loader || !window.gsap) return;
-    console.log("[tryStartUnityReveal] HEART_BEATS is =", HEART_BEATS);
-    if (window.UNITY_READY && window.CARDITO_ANIM_DONE && HEART_BEATS >= 5) {
+
+    const progress = window.UnityLoadProgress || 0;
+    const ready = progress >= 0.9; // حداقل ۹۰٪ لود یونیتی
+
+    // برای دیباگ:
+    console.log("[tryStartUnityReveal] progress=", progress.toFixed(2),
+                "beats=", HEART_BEATS,
+                "animDone=", window.CARDITO_ANIM_DONE);
+
+    if (ready && window.CARDITO_ANIM_DONE && HEART_BEATS >= 5) {
       gsap.to(loader, {
         opacity: 0,
         duration: 0.7,
@@ -231,26 +237,28 @@
 
     requestAnimationFrame(() => {
       // فقط عرض تصاویر برای فاصله‌گذاری
-      const widths = letters.map(el => el.getBoundingClientRect().width || el.naturalWidth || 0);
+      const widths = letters.map(el =>
+        el.getBoundingClientRect().width || el.naturalWidth || 0
+      );
 
-      // محاسبه طول کل
-      let total = widths.reduce((a,b)=>a+b,0);
+      let total = widths.reduce((a, b) => a + b, 0);
       const startX = -total / 2;
       const positions = {};
       let cursor = startX;
 
       for (let i = 0; i < widths.length; i++) {
-        let  center = cursor + widths[i] / 2;
-        if (CARDITO_LETTER_IDS[i] === "L4") { center -= 20; }
+        let center = cursor + widths[i] / 2;
+        if (CARDITO_LETTER_IDS[i] === "L4") {
+          center -= 20; // همپوشانی حرف چهارم
+        }
         positions[CARDITO_LETTER_IDS[i]] = center;
-        cursor += widths[i] ;
+        cursor += widths[i];
       }
 
-      // لاین ثابت پایین: yEnd = 0 (روی همان خط)
       const dropYStart = -window.innerHeight * 0.25;
       const dropYEnd = 0;
 
-      // تنظیم اولیه حروف: بالای صفحه، نامرئی
+      // تنظیم اولیه حروف
       letters.forEach((el, idx) => {
         const id = CARDITO_LETTER_IDS[idx];
         gsap.set(el, {
@@ -263,23 +271,22 @@
       // قلب در ابتدا پنهان
       gsap.set(heart, { opacity: 0, scale: 0.8 });
 
-      // تایم‌لاین اصلی
       const tl = gsap.timeline({
-        defaults: { duration: 1.4, ease: "power2.out" } // بدون موج / bounce
+        defaults: { duration: 1.4, ease: "power2.out" }
       });
 
-      // افتادن حروف روی یک خط سفت، با فاصله کمی بیشتر بین هر حرف
+      // افتادن حروف
       tl.to(letters, {
         y: dropYEnd,
         opacity: 1,
-        stagger: 0.15   // فاصله زمانی بیشتر بین افتادن هر حرف
+        stagger: 0.15
       }, 0)
 
-      // مکث ۱ ثانیه قبل از قلب
-      .to({}, { duration: 1 });
+      // مکث ۱ ثانیه
+      .to({}, { duration: 1 })
 
-      // جاگذاری قلب بالای حرف i (L5)
-      tl.add(() => {
+      // جاگذاری قلب بالای i (L5)
+      .add(() => {
         const iIndex = CARDITO_LETTER_IDS.indexOf("L5");
         const iEl = letters[iIndex];
         const iRect = iEl.getBoundingClientRect();
@@ -292,25 +299,24 @@
         const offsetYTopOfI =
           iRect.top - (loaderRect.top + loaderRect.height / 2);
 
-        // قلب کمی بالاتر از بالای حرف i
         gsap.set(heart, {
           x: offsetX,
           y: offsetYTopOfI
         });
-      });
+      })
 
       // ظاهر شدن قلب
-      tl.to(heart, {
+      .to(heart, {
         opacity: 1,
         scale: 1,
         duration: 0.45,
         ease: "power2.out"
-      });
+      })
 
-      // پایان سکانس اصلی
-      tl.call(() => {
+      // پایان سکانس اصلی و شروع ضربان
+      .call(() => {
         window.CARDITO_ANIM_DONE = true;
-        
+
         gsap.to("#cardito-heart", {
           scale: 1.12,
           duration: 0.45,
@@ -319,12 +325,9 @@
           repeat: -1,
           onRepeat: () => {
             HEART_BEATS++;
-            //console.log("❤️ BEAT #", HEART_BEATS);
             tryStartUnityReveal();
           }
         });
-        
-        
       });
     });
   }
@@ -356,6 +359,7 @@
     });
   });
 </script>
+
 
     <!-- ================================
          ⭐ Original Unity Loader
@@ -463,7 +467,14 @@
         
         waitForIntro().then(() => {
           createUnityInstance(canvas, config, (progress) => {
+            // ذخیرهٔ وضعیت لود یونیتی برای لودر
+            window.UnityLoadProgress = progress || 0;
+
+            // اگر بعداً خواستی نوار پیشرفت درست کنی همین خط کار می‌کند
             progressBarFull.style.width = (progress * 100) + "%";
+
+            // هر بار که progress آپدیت می‌شود، چک کن لودر می‌تواند محو شود یا نه
+            tryStartUnityReveal();
           }).then((unityInstance) => {
 
             window.sendMessage = function(obj, method, param) {
