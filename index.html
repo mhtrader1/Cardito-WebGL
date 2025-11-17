@@ -153,14 +153,6 @@
     overflow: hidden;
   }
 
-  #cardito-logo {
-    position: relative;
-    transform-origin: center;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
   .letter,
   #cardito-heart {
     position: absolute;
@@ -178,11 +170,6 @@
   }
 
   @media (max-width: 600px) {
-    #cardito-logo {
-      max-width: 50vw;
-      overflow: visible;
-    }
-
     .letter {
       max-height: 12vh;
       height: auto;
@@ -198,16 +185,14 @@
 </style>
 
 <div id="cardito-loader">
-  <div id="cardito-logo">
-    <img class="letter" id="L1" src="1.png">
-    <img class="letter" id="L2" src="2.png">
-    <img class="letter" id="L3" src="3.png">
-    <img class="letter" id="L4" src="4.png">
-    <img class="letter" id="L5" src="5.png">
-    <img class="letter" id="L6" src="6.png">
-    <img class="letter" id="L7" src="7.png">
-    <img id="cardito-heart" src="heart.png">
-  </div>
+  <img class="letter" id="L1" src="1.png">
+  <img class="letter" id="L2" src="2.png">
+  <img class="letter" id="L3" src="3.png">
+  <img class="letter" id="L4" src="4.png">
+  <img class="letter" id="L5" src="5.png"> <!-- حرف i بدون نقطه -->
+  <img class="letter" id="L6" src="6.png">
+  <img class="letter" id="L7" src="7.png">
+  <img id="cardito-heart" src="heart.png">
 </div>
 
 <!-- GSAP CDN -->
