@@ -204,6 +204,7 @@
   window.UnityLoadProgress = window.UnityLoadProgress || 0; // از سمت Unity ست می‌شود
 
   const CARDITO_LETTER_IDS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7"];
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 600;
   let HEART_BEATS = 0;
 
   // فقط وقتی سه شرط اوکی شد، لودر محو می‌شود
@@ -247,8 +248,7 @@
 
       for (let i = 0; i < widths.length; i++) {
         let center = cursor + widths[i] / 2;
-        if (!isMobile && CARDITO_LETTER_IDS[i] === "L4") center -= 20; // همپوشانی حرف چهارم
-        if (isMobile && CARDITO_LETTER_IDS[i] === "L4") center += 10;
+        if (CARDITO_LETTER_IDS[i] === "L4") center += isMobile ? 10 : -20;
         positions[CARDITO_LETTER_IDS[i]] = center;
         cursor += widths[i];
       }
