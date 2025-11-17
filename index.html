@@ -237,7 +237,8 @@
       let cursor = startX;
 
       for (let i = 0; i < widths.length; i++) {
-        const center = cursor + widths[i] / 2;
+        let  center = cursor + widths[i] / 2;
+        if (CARDITO_LETTER_IDS[i] === "L4") { center -= 20; }
         positions[CARDITO_LETTER_IDS[i]] = center;
         cursor += widths[i] ;
       }
