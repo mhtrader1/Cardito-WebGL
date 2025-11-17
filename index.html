@@ -170,19 +170,14 @@
   }
 
   @media (max-width: 600px) {
-    #cardito-loader {
-      transform: scale(0.78);
-      transform-origin: center center;
-    }
-
     letter {
-      max-height: 12vh;
+      max-height: 8vh;
       height: auto;
       width: auto;
     }
 
     #cardito-heart {
-      max-height: 8vh;
+      max-height: 5vh;
       height: auto;
       width: auto;
     }
@@ -218,11 +213,6 @@
 
     const progress = window.UnityLoadProgress || 0;
     const ready = progress >= 0.9; // حداقل ۹۰٪ لود یونیتی
-
-    // برای دیباگ:
-    console.log("[tryStartUnityReveal] progress=", progress.toFixed(2),
-                "beats=", HEART_BEATS,
-                "animDone=", window.CARDITO_ANIM_DONE);
 
     if (ready && window.CARDITO_ANIM_DONE && HEART_BEATS >= 5) {
       gsap.to(loader, {
