@@ -310,8 +310,7 @@
       // پایان سکانس اصلی
       tl.call(() => {
         window.CARDITO_ANIM_DONE = true;
-        tryStartUnityReveal();
-        // ضربان قلب، با شمارش حداقل ۳ بار
+        
         gsap.to("#cardito-heart", {
           scale: 1.12,
           duration: 0.45,
@@ -442,6 +441,8 @@
       }
 
       loadingBar.style.display = "block";
+      window.UNITY_READY = true;                       // ✅ Unity HTML logo / loading bar is now visible
+      console.log("[HTML] UNITY_READY set → Unity logo is visible");
 
       function waitForIntro() {
         return new Promise(resolve => {
@@ -462,10 +463,6 @@
         
         waitForIntro().then(() => {
           createUnityInstance(canvas, config, (progress) => {
-            if (progress > 0.02 && !window.UNITY_READY) {
-                window.UNITY_READY = true;
-                tryStartUnityReveal();
-            }
             progressBarFull.style.width = (progress * 100) + "%";
           }).then((unityInstance) => {
 
