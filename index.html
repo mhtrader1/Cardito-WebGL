@@ -264,13 +264,13 @@
       for (let i = 0; i < widths.length; i++) {
         let center = cursor + widths[i] / 2;
 
-        // فاصلهٔ حرف چهارم (D) از بقیه – مبنا: دسکتاپ، موبایل با offset بیشتر
+        /* فاصلهٔ حرف چهارم (D) از بقیه – مبنا: دسکتاپ، موبایل با offset بیشتر
         if (CARDITO_LETTER_IDS[i] === "L4") {
           const baseOffsetDesktop = -5;  // روی دسکتاپ
           const baseOffsetMobile  = -20;  // روی S20
           const baseOffset = isMobile ? baseOffsetMobile : baseOffsetDesktop;
           center += baseOffset * scaleW;  // 📏 مقیاس بر اساس عرض صفحه
-        }
+        }*/
 
         positions[CARDITO_LETTER_IDS[i]] = center;
         cursor += widths[i];
@@ -322,7 +322,7 @@
 
         // روی S20: حدوداً ۵px بالای i → base = -5
         // روی گوشی کوتاه‌تر: |offset| بیشتر (قلب بالاتر بره)
-        const baseHeartOffsetY = isMobile ? -20 : -5;
+        const baseHeartOffsetY = isMobile ? -30 : -5;
         const heartOffsetY = baseHeartOffsetY * scaleH;
 
         const finalY = offsetYTopOfI + heartOffsetY;
