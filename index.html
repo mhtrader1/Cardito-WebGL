@@ -45,6 +45,7 @@
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="ethers.js"></script>
+    <!--<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>-->
     <script src="https://unpkg.com/@walletconnect/ethereum-provider/dist/index.umd.js"></script>
 
     <script>
@@ -110,7 +111,7 @@
                 } else if (typeof unityInstance !== "undefined" && unityInstance) {
                   unityInstance.SendMessage(this.go, this.method, val);
                 } else if (typeof SendMessage === "function") {
-                  SendMessage(this.go, this.method, val);
+                  sendMessage(this.go, this.method, val);
                 }
               } catch (e) {
                 console.error("[HTMLKeyboardOverlay] SendMessage error", e);
@@ -121,7 +122,7 @@
           }
         };
 
-        el.addEventListener("blur", () => overlay.close(true));
+        el.addEventListener("blur", () => overlay.close(false));
 
         el.addEventListener("keydown", (e) => {
           if (e.key === "Enter") {
@@ -137,6 +138,8 @@
         window.HTMLKeyboardOverlay = overlay;
       })();
     </script>
+  </head>
+  <body>
 
 <!-- ================================
      ⭐ Cardito Cinematic Loader (GSAP)
@@ -169,15 +172,16 @@
     pointer-events: none;
   }
 
+  /* 📱 تنظیم اندازه روی موبایل: نسبت‌محور بر اساس ارتفاع/عرض صفحه */
   @media (max-width: 600px) {
     .letter {
-      max-height: 12vh;
+      max-height: 12vh;  /* ارتفاع حروف با توجه به ارتفاع صفحه */
       height: auto;
       width: auto;
     }
 
     #cardito-heart {
-      max-height: 3vh;
+      max-height: 5vh;   /* قلب کمی کوچک‌تر از حروف */
       height: auto;
       width: auto;
     }
@@ -207,6 +211,14 @@
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 600;
   let HEART_BEATS = 0;
 
+  // 📏 ابعاد صفحه برای نرمال‌سازی (S20 ≈ 360x800 مبنا)
+  const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+  const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+  const BASE_WIDTH = 360;
+  const BASE_HEIGHT = 800;
+  const scaleW = vw / BASE_WIDTH;
+  const scaleH = vh > 0 ? (BASE_HEIGHT / vh) : 1; // گوشی کوتاه → offset عمودی بیشتر (قلب بالاتر بره)
+
   // فقط وقتی سه شرط اوکی شد، لودر محو می‌شود
   function tryStartUnityReveal() {
     const loader = document.getElementById("cardito-loader");
@@ -228,18 +240,21 @@
 
   function initCarditoLoader() {
     const loader = document.getElementById("cardito-loader");
-    if (!loader || !window.gsap) return;
+    if (!loader) return;
 
     const letters = CARDITO_LETTER_IDS.map(id => document.getElementById(id));
     const heart = document.getElementById("cardito-heart");
 
-    if (!letters.every(Boolean) || !heart) return;
+    if (!letters.every(Boolean) || !heart || !window.gsap) {
+      // اگر تصاویر یا GSAP آماده نشدند، انیمیشن را نادیده بگیر ولی اجازه بده Unity ادامه دهد
+      window.CARDITO_ANIM_DONE = true;
+      tryStartUnityReveal(true);
+      return;
+    }
 
     requestAnimationFrame(() => {
       // فقط عرض تصاویر برای فاصله‌گذاری
-      const widths = letters.map(el =>
-        el.getBoundingClientRect().width || el.naturalWidth || 0
-      );
+      const widths = letters.map(el => el.naturalWidth || el.getBoundingClientRect().width || 0);
 
       let total = widths.reduce((a, b) => a + b, 0);
       const startX = -total / 2;
@@ -248,12 +263,20 @@
 
       for (let i = 0; i < widths.length; i++) {
         let center = cursor + widths[i] / 2;
-        if (CARDITO_LETTER_IDS[i] === "L4") center += isMobile ? -40 : -20;
+
+        // فاصلهٔ حرف چهارم (D) از بقیه – مبنا: دسکتاپ، موبایل با offset بیشتر
+        if (CARDITO_LETTER_IDS[i] === "L4") {
+          const baseOffsetDesktop = -5;  // روی دسکتاپ
+          const baseOffsetMobile  = -20;  // روی S20
+          const baseOffset = isMobile ? baseOffsetMobile : baseOffsetDesktop;
+          center += baseOffset * scaleW;  // 📏 مقیاس بر اساس عرض صفحه
+        }
+
         positions[CARDITO_LETTER_IDS[i]] = center;
         cursor += widths[i];
       }
 
-      const dropYStart = -window.innerHeight * 0.25;
+      const dropYStart = -vh * 0.25; // سقوط از ۲۵٪ بالای صفحه
       const dropYEnd = 0;
 
       // تنظیم اولیه حروف
@@ -283,7 +306,7 @@
       // مکث ۱ ثانیه
       .to({}, { duration: 1 })
 
-      // جاگذاری قلب بالای i (L5)
+      // جاگذاری قلب بالای i (L5) – با درنظر گرفتن ارتفاع صفحه
       .add(() => {
         const iIndex = CARDITO_LETTER_IDS.indexOf("L5");
         const iEl = letters[iIndex];
@@ -296,10 +319,14 @@
 
         const offsetYTopOfI =
           iRect.top - (loaderRect.top + loaderRect.height / 2);
-        let finalY = offsetYTopOfI;
-        if (isMobile) {
-          finalY -= 5;   // ← عدد را بسته به تست کمی بالا/پایین کن
-        }
+
+        // روی S20: حدوداً ۵px بالای i → base = -5
+        // روی گوشی کوتاه‌تر: |offset| بیشتر (قلب بالاتر بره)
+        const baseHeartOffsetY = isMobile ? -10 : -5;
+        const heartOffsetY = baseHeartOffsetY * scaleH;
+
+        const finalY = offsetYTopOfI + heartOffsetY;
+
         gsap.set(heart, {
           x: offsetX,
           y: finalY
