@@ -181,7 +181,7 @@
     }
 
     #cardito-heart {
-      max-height: 5vh;   /* قلب کمی کوچک‌تر از حروف */
+      max-height: 4vh;   /* قلب کمی کوچک‌تر از حروف */
       height: auto;
       width: auto;
     }
@@ -254,7 +254,7 @@
 
     requestAnimationFrame(() => {
       // فقط عرض تصاویر برای فاصله‌گذاری
-      const widths = letters.map(el => el.naturalWidth || el.getBoundingClientRect().width || 0);
+      const widths = letters.map(el => el.getBoundingClientRect().width || el.naturalWidth || 0);
 
       let total = widths.reduce((a, b) => a + b, 0);
       const startX = -total / 2;
@@ -322,7 +322,7 @@
 
         // روی S20: حدوداً ۵px بالای i → base = -5
         // روی گوشی کوتاه‌تر: |offset| بیشتر (قلب بالاتر بره)
-        const baseHeartOffsetY = isMobile ? -10 : -5;
+        const baseHeartOffsetY = isMobile ? -20 : -5;
         const heartOffsetY = baseHeartOffsetY * scaleH;
 
         const finalY = offsetYTopOfI + heartOffsetY;
