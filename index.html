@@ -39,6 +39,33 @@
       }
     </style>
 
+    <!-- =========== Buiding DeviceId ===========-->
+    <script>
+    (function() {
+      function generateDeviceId() {
+        const key = "cardito_device_id";
+        let id = localStorage.getItem(key);
+        if (!id) {
+          const rand = crypto.getRandomValues(new Uint8Array(16));
+          id = Array.from(rand).map(x => x.toString(16).padStart(2, "0")).join("");
+          localStorage.setItem(key, id);
+        }
+        return id;
+      }
+
+      window.CARDITO_DEVICE_ID = generateDeviceId();
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = urlParams.get("ref");
+
+      if (ref) {
+        localStorage.setItem("cardito_referral_code", ref);
+      }
+
+      window.CARDITO_REF_CODE = ref || null;
+    })();
+    </script>
+
     <!-- ======================================================
          🔌 Web3 prerequisites
          ====================================================== -->
@@ -276,7 +303,7 @@
         cursor += widths[i];
       }
 
-      const dropYStart = -vh * 0.25; // سقوط از ۲۵٪ بالای صفحه
+      const dropYStart = -vh * 0.5; // سقوط از 50٪ بالای صفحه
       const dropYEnd = 0;
 
       // تنظیم اولیه حروف
@@ -509,6 +536,9 @@
               try { unityInstance.SendMessage(obj, method, param); }
               catch (e) { console.error("[sendMessage ERROR]", e); }
             };
+
+            unityInstance.SendMessage("RegisterManager", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
+            unityInstance.SendMessage("RegisterManager", "OnReferralCodeFromJS", window.CARDITO_REF_CODE || "");
 
             loadingBar.style.display = "none";
             fullscreenButton.onclick = () => unityInstance.SetFullscreen(1);
