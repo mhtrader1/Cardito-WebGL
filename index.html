@@ -130,20 +130,37 @@
 
           close(sendBack) {
             el.style.display = "none";
+
             if (sendBack && this.go && this.method) {
               const val = el.value || "";
+
               try {
-                if (typeof sendMessage === "function") {
-                  sendMessage(this.go, this.method, val);
-                } else if (typeof unityInstance !== "undefined" && unityInstance) {
-                  unityInstance.SendMessage(this.go, this.method, val);
-                } else if (typeof SendMessage === "function") {
-                  sendMessage(this.go, this.method, val);
+                // اول: اگر sendMessage جهانی ست شده باشد (پس از ساخت UnityInstance)
+                if (typeof window.sendMessage === "function") {
+                  window.sendMessage(this.go, this.method, val);
+
+                // دوم: اگر خود unityInstance در دسترس باشد
+                } else if (typeof window.unityInstance !== "undefined" && window.unityInstance) {
+                  window.unityInstance.SendMessage(this.go, this.method, val);
+
+                // سوم: fallback قدیمی WebGL
+                } else if (typeof window.SendMessage === "function") {
+                  window.SendMessage(this.go, this.method, val);
+                } else {
+                  console.warn("[HTMLKeyboardOverlay] No bridge ready → input queued");
+                  setTimeout(() => {
+                    if (typeof window.sendMessage === "function")
+                      window.sendMessage(this.go, this.method, val);
+                    else if (window.unityInstance)
+                      window.unityInstance.SendMessage(this.go, this.method, val);
+                  }, 300);
                 }
-              } catch (e) {
+
+                } catch (e) {
                 console.error("[HTMLKeyboardOverlay] SendMessage error", e);
               }
             }
+
             this.go = null;
             this.method = null;
           }
@@ -280,110 +297,107 @@
     }
 
     requestAnimationFrame(() => {
-      // فقط عرض تصاویر برای فاصله‌گذاری
-      const widths = letters.map(el => el.getBoundingClientRect().width || el.naturalWidth || 0);
+      (async () => {
 
-      let total = widths.reduce((a, b) => a + b, 0);
-      const startX = -total / 2;
-      const positions = {};
-      let cursor = startX;
-
-      for (let i = 0; i < widths.length; i++) {
-        let center = cursor + widths[i] / 2;
-
-        /* فاصلهٔ حرف چهارم (D) از بقیه – مبنا: دسکتاپ، موبایل با offset بیشتر
-        if (CARDITO_LETTER_IDS[i] === "L4") {
-          const baseOffsetDesktop = -5;  // روی دسکتاپ
-          const baseOffsetMobile  = -20;  // روی S20
-          const baseOffset = isMobile ? baseOffsetMobile : baseOffsetDesktop;
-          center += baseOffset * scaleW;  // 📏 مقیاس بر اساس عرض صفحه
-        }*/
-
-        positions[CARDITO_LETTER_IDS[i]] = center;
-        cursor += widths[i];
-      }
-
-      const dropYStart = -vh * 0.5; // سقوط از 50٪ بالای صفحه
-      const dropYEnd = 0;
-
-      // تنظیم اولیه حروف
-      letters.forEach((el, idx) => {
-        const id = CARDITO_LETTER_IDS[idx];
-        gsap.set(el, {
-          x: positions[id],
-          y: dropYStart,
-          opacity: 0
-        });
-      });
-
-      // قلب در ابتدا پنهان
-      gsap.set(heart, { opacity: 0, scale: 0.8 });
-
-      const tl = gsap.timeline({
-        defaults: { duration: 1.4, ease: "power2.out" }
-      });
-
-      // افتادن حروف
-      tl.to(letters, {
-        y: dropYEnd,
-        opacity: 1,
-        stagger: 0.15
-      }, 0)
-
-      // مکث ۱ ثانیه
-      .to({}, { duration: 1 })
-
-      // جاگذاری قلب بالای i (L5) – با درنظر گرفتن ارتفاع صفحه
-      .add(() => {
-        const iIndex = CARDITO_LETTER_IDS.indexOf("L5");
-        const iEl = letters[iIndex];
-        const iRect = iEl.getBoundingClientRect();
-        const loaderRect = loader.getBoundingClientRect();
-
-        const offsetX =
-          (iRect.left + iRect.width / 2) -
-          (loaderRect.left + loaderRect.width / 2);
-
-        const offsetYTopOfI =
-          iRect.top - (loaderRect.top + loaderRect.height / 2);
-
-        // روی S20: حدوداً ۵px بالای i → base = -5
-        // روی گوشی کوتاه‌تر: |offset| بیشتر (قلب بالاتر بره)
-        const baseHeartOffsetY = isMobile ? -30 : -5;
-        const heartOffsetY = baseHeartOffsetY * scaleH;
-
-        const finalY = offsetYTopOfI + heartOffsetY;
-
-        gsap.set(heart, {
-          x: offsetX,
-          y: finalY
-        });
-      })
-
-      // ظاهر شدن قلب
-      .to(heart, {
-        opacity: 1,
-        scale: 1,
-        duration: 0.45,
-        ease: "power2.out"
-      })
-
-      // پایان سکانس اصلی و شروع ضربان
-      .call(() => {
-        window.CARDITO_ANIM_DONE = true;
-
-        gsap.to("#cardito-heart", {
-          scale: 1.12,
-          duration: 0.45,
-          ease: "power1.inOut",
-          yoyo: true,
-          repeat: -1,
-          onRepeat: () => {
-            HEART_BEATS++;
-            tryStartUnityReveal();
+        // ⭐ مرحله ۱: تضمین لود کامل و decode کامل تصاویر
+        try {
+          for (let el of letters) {
+            if (el.decode) {
+              await el.decode();
+            }
           }
+        } catch (e) {
+          console.warn("[Loader] decode() failed – fallback to naturalWidth");
+        }
+
+        // ⭐ مرحله ۲ (نسخه نهایی): محاسبه عرض واقعی (scaled width) بعد از decode
+        const widths = [];
+        for (let el of letters) {
+          if (!el.naturalWidth) {
+            await new Promise(r => setTimeout(r, 10));
+          }
+
+          const rect = el.getBoundingClientRect();
+          let scaledWidth = rect.width || el.naturalWidth || 0;
+          if (!scaledWidth) scaledWidth = 1;
+
+          widths.push(scaledWidth);
+        }
+
+        let total = widths.reduce((a, b) => a + b, 0);
+        const startX = -total / 2;
+        const positions = {};
+        let cursor = startX;
+
+        for (let i = 0; i < widths.length; i++) {
+          let center = cursor + widths[i] / 2;
+          positions[CARDITO_LETTER_IDS[i]] = center;
+          cursor += widths[i];
+        }
+
+        const dropYStart = -vh * 0.5;
+        const dropYEnd = 0;
+
+        letters.forEach((el, idx) => {
+          const id = CARDITO_LETTER_IDS[idx];
+          gsap.set(el, { x: positions[id], y: dropYStart, opacity: 0 });
         });
-      });
+
+        gsap.set(heart, { opacity: 0, scale: 0.8 });
+
+        const tl = gsap.timeline({
+          defaults: { duration: 1.4, ease: "power2.out" }
+        });
+
+        tl.to(letters, {
+          y: dropYEnd,
+          opacity: 1,
+          stagger: 0.15
+        }, 0)
+        .to({}, { duration: 1 })
+        .add(() => {
+          const iIndex = CARDITO_LETTER_IDS.indexOf("L5");
+          const iEl = letters[iIndex];
+          const iRect = iEl.getBoundingClientRect();
+          const loaderRect = loader.getBoundingClientRect();
+
+          const offsetX =
+            (iRect.left + iRect.width / 2) -
+            (loaderRect.left + loaderRect.width / 2);
+
+          const offsetYTopOfI =
+            iRect.top - (loaderRect.top + loaderRect.height / 2);
+
+          const baseHeartOffsetY = isMobile ? -30 : -5;
+          const heartOffsetY = baseHeartOffsetY * scaleH;
+
+          const finalY = offsetYTopOfI + heartOffsetY;
+
+          gsap.set(heart, { x: offsetX, y: finalY });
+        })
+        .to(heart, {
+          opacity: 1,
+          scale: 1,
+          duration: 0.45,
+          ease: "power2.out"
+        })
+        .call(() => {
+          window.CARDITO_ANIM_DONE = true;
+
+          gsap.to("#cardito-heart", {
+            scale: 1.12,
+            duration: 0.45,
+            ease: "power1.inOut",
+            yoyo: true,
+            repeat: -1,
+            onRepeat: () => {
+              HEART_BEATS++;
+              tryStartUnityReveal();
+            }
+          });
+        });
+
+      })();
     });
   }
 
@@ -458,7 +472,7 @@
           warningBanner.style.display = warningBanner.children.length ? "block" : "none";
         }
         var div = document.createElement("div");
-        div.innerHTML = msg;
+        div.textContent = msg;
         warningBanner.appendChild(div);
 
         if (type == "error") div.style = "background: red; padding: 10px;";
@@ -537,13 +551,20 @@
               catch (e) { console.error("[sendMessage ERROR]", e); }
             };
 
-            unityInstance.SendMessage("RegisterManager", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
-            unityInstance.SendMessage("RegisterManager", "OnReferralCodeFromJS", window.CARDITO_REF_CODE || "");
-
             loadingBar.style.display = "none";
             fullscreenButton.onclick = () => unityInstance.SetFullscreen(1);
 
             window.unityInstance = unityInstance;
+
+            window.SendUnityDeviceId = function() {
+                if (unityInstance && unityInstance.SendMessage)
+                    unityInstance.SendMessage("RegisterManager", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
+            };
+
+            window.SendUnityReferral = function() {
+                if (unityInstance && unityInstance.SendMessage)
+                    unityInstance.SendMessage("RegisterManager", "OnReferralCodeFromJS", window.CARDITO_REF_CODE || "");
+            };
 
           }).catch((msg) => console.error(msg));
         });
