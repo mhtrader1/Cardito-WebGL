@@ -2,7 +2,7 @@
 // ✅ Cardito SocketBridge.js (WebGL ↔ Server bridge)
 // ========================================================
 
-const SOCKET_URL = window.SOCKET_URL || "https://api.cardito.app";
+const SOCKET_URL = window.SOCKET_URL || "https://carditoserver.onrender.com";
 
 // 🔹 decimals هر شبکه برای توکن پرداختی آن شبکه (یک توکن در هر chain)
 const TOKEN_DECIMALS = {
