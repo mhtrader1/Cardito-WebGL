@@ -2086,13 +2086,13 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  5364032: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
- 5364093: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
- 5364157: function() {return Module.webglContextAttributes.powerPreference;},  
- 5364215: function() {Module['emscripten_get_now_backup'] = performance.now;},  
- 5364270: function($0) {performance.now = function() { return $0; };},  
- 5364318: function($0) {performance.now = function() { return $0; };},  
- 5364366: function() {performance.now = Module['emscripten_get_now_backup'];}
+  5364096: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
+ 5364157: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
+ 5364221: function() {return Module.webglContextAttributes.powerPreference;},  
+ 5364279: function() {Module['emscripten_get_now_backup'] = performance.now;},  
+ 5364334: function($0) {performance.now = function() { return $0; };},  
+ 5364382: function($0) {performance.now = function() { return $0; };},  
+ 5364430: function() {performance.now = Module['emscripten_get_now_backup'];}
 };
 
 
@@ -5126,6 +5126,22 @@ var ASM_CONSTS = {
           SendMessage(gameObjectName, "OnWeb3Error", err.message || "WalletConnect error");
         }
       })();
+    }
+
+  function _Web3_PayStable(skuPtr, amtPtr, symPtr, cid) {
+      const sku = UTF8ToString(skuPtr);
+      const amt = UTF8ToString(amtPtr);
+      const sym = UTF8ToString(symPtr);
+  
+      console.log("[Web3Bridge] PayStable called:", sku, amt, sym, cid);
+  
+      // اگر JS سطح بالا payStable تعریف شده باشد
+      if (window.Web3Bridge && typeof window.Web3Bridge.PayStable === "function") {
+          window.Web3Bridge.PayStable(sku, amt, sym, cid);
+          return;
+      }
+  
+      console.error("[Web3Bridge] PayStable not found on window.Web3Bridge");
     }
 
   function _Web3_SignMessage(ptr, msgPtr) {
@@ -16506,6 +16522,7 @@ var asmLibraryArg = {
   "JS_WebRequest_SetTimeout": _JS_WebRequest_SetTimeout,
   "ShareLink": _ShareLink,
   "Web3_GetAddress": _Web3_GetAddress,
+  "Web3_PayStable": _Web3_PayStable,
   "Web3_SignMessage": _Web3_SignMessage,
   "__assert_fail": ___assert_fail,
   "__cxa_allocate_exception": ___cxa_allocate_exception,
