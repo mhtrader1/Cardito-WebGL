@@ -297,7 +297,8 @@ window.Web3Bridge.PayStable = async function (sku, amount, tokenSymbol, chainId)
     // -------------------------------
     // بررسی اینکه شبکه فعلی کیف پول == chainId مورد نیاز است
     // -------------------------------
-    const currentChain = await provider.send("eth_chainId", []);
+    let currentChain = await provider.send("eth_chainId", []);
+    currentChain = String(currentChain);
     const hexChain = "0x" + cid.toString(16);
 
     if (currentChain.toLowerCase() !== hexChain.toLowerCase()) {

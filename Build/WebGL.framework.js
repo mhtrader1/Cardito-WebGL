@@ -5099,7 +5099,7 @@ var ASM_CONSTS = {
                 icons: ["https://cardito.app/logo.png"]
               },
               redirect: {
-                universal: window.location.href
+                universal: "https://game.cardito.app/"
               }
             });
   
