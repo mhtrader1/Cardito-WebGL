@@ -209,8 +209,11 @@ async function getEip1193Provider(chainId) {
       metadata: {
         name: "Cardito Game",
         description: "Cardito WalletConnect Integration",
-        url: "https://cardito.app",
+        url: "https://game.cardito.app",
         icons: ["https://cardito.app/logo.png"]
+      },
+      redirect: {
+        universal: "https://game.cardito.app"
       }
     });
 

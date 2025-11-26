@@ -5036,6 +5036,22 @@ var ASM_CONSTS = {
       }
     }
 
+  function _Web3_DisconnectWC() {
+      try {
+        const g = (typeof globalThis !== "undefined") ? globalThis : window;
+        if (g.CarditoWC) {
+          console.log("[WC] Disconnecting WalletConnect session...");
+          g.CarditoWC.disconnect();
+          g.CarditoWC = null;
+          console.log("[WC] WalletConnect session cleared.");
+        } else {
+          console.log("[WC] No WC instance to clear.");
+        }
+      } catch (e) {
+        console.warn("[WC] disconnect error:", e);
+      }
+    }
+
   function _Web3_GetAddress(ptr) {
       const cid = window.UnitySelectedChain || 1;
       const gameObjectName = UTF8ToString(ptr);
@@ -16521,6 +16537,7 @@ var asmLibraryArg = {
   "JS_WebRequest_SetRequestHeader": _JS_WebRequest_SetRequestHeader,
   "JS_WebRequest_SetTimeout": _JS_WebRequest_SetTimeout,
   "ShareLink": _ShareLink,
+  "Web3_DisconnectWC": _Web3_DisconnectWC,
   "Web3_GetAddress": _Web3_GetAddress,
   "Web3_PayStable": _Web3_PayStable,
   "Web3_SignMessage": _Web3_SignMessage,
