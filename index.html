@@ -2,6 +2,7 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Cardito Web</title>
 
@@ -80,6 +81,20 @@
     </script>
 
     <script src="SocketBridge.js"></script>
+
+    <script>
+    function CarditoCopyToClipboard(text) {
+        try {
+            navigator.clipboard.writeText(text).then(() => {
+                console.log("Copied from JS:", text);
+            }).catch(err => {
+                console.log("Copy failed:", err);
+            });
+        } catch(e) {
+            console.log("Copy exception:", e);
+        }
+    }
+    </script>
 
     <!-- ===== HTML Keyboard Overlay for mobile WebGL ===== -->
     <input id="cardito-html-input"
@@ -185,249 +200,219 @@
   </head>
   <body>
 
-<!-- ================================
-     ⭐ Cardito Cinematic Loader (GSAP)
-     ================================= -->
-<style>
-  #cardito-loader {
-    position: fixed;
-    inset: 0;
-    background: white;
-    z-index: 999999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-  }
+  <!-- ================================
+   ⭐ Cardito Cinematic Loader (GSAP)
+  ================================= -->
+  <style>
+    #cardito-loader {
+      position: fixed;
+      inset: 0;
+      background: white;
+      z-index: 999999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      flex-direction: column; /* NEW → اجازه می‌دهد متن زیر لوگو قرار بگیرد */
+    }
 
-  .letter,
-  #cardito-heart {
-    position: absolute;
-    bottom: calc(50% - 40px);   /* همه روی یک خط مشترک */
-    left: 50%;
-    transform: translateX(-50%);
-    opacity: 0;
-    width: auto;
-    height: auto;
-  }
-
-  #cardito-heart {
-    width: auto;
-    pointer-events: none;
-  }
-
-  /* 📱 تنظیم اندازه روی موبایل: نسبت‌محور بر اساس ارتفاع/عرض صفحه */
-  @media (max-width: 600px) {
     .letter {
-      max-height: 12vh;  /* ارتفاع حروف با توجه به ارتفاع صفحه */
-      height: auto;
+      position: absolute;
+      bottom: calc(50% - 7vh);
+      opacity: 0;
+      left: 50%;
+      transform: none;
       width: auto;
+      height: auto;
     }
 
     #cardito-heart {
-      max-height: 4vh;   /* قلب کمی کوچک‌تر از حروف */
-      height: auto;
+      position: absolute;
+      bottom: calc(50% - 5vh);
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
       width: auto;
-    }
-  }
-</style>
-
-<div id="cardito-loader">
-  <img class="letter" id="L1" src="1.png">
-  <img class="letter" id="L2" src="2.png">
-  <img class="letter" id="L3" src="3.png">
-  <img class="letter" id="L4" src="4.png">
-  <img class="letter" id="L5" src="5.png"> <!-- حرف i بدون نقطه -->
-  <img class="letter" id="L6" src="6.png">
-  <img class="letter" id="L7" src="7.png">
-  <img id="cardito-heart" src="heart.png">
-</div>
-
-<!-- GSAP CDN -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-
-<script>
-  // فلگ‌ها
-  window.CARDITO_ANIM_DONE = false;
-  window.UnityLoadProgress = window.UnityLoadProgress || 0; // از سمت Unity ست می‌شود
-
-  const CARDITO_LETTER_IDS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7"];
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 600;
-  let HEART_BEATS = 0;
-
-  // 📏 ابعاد صفحه برای نرمال‌سازی (S20 ≈ 360x800 مبنا)
-  const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-  const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
-  const BASE_WIDTH = 360;
-  const BASE_HEIGHT = 800;
-  const scaleW = vw / BASE_WIDTH;
-  const scaleH = vh > 0 ? (BASE_HEIGHT / vh) : 1; // گوشی کوتاه → offset عمودی بیشتر (قلب بالاتر بره)
-
-  // فقط وقتی سه شرط اوکی شد، لودر محو می‌شود
-  function tryStartUnityReveal() {
-    const loader = document.getElementById("cardito-loader");
-    if (!loader || !window.gsap) return;
-
-    const progress = window.UnityLoadProgress || 0;
-    const ready = progress >= 0.9; // حداقل ۹۰٪ لود یونیتی
-
-    if (ready && window.CARDITO_ANIM_DONE && HEART_BEATS >= 5) {
-      gsap.to(loader, {
-        opacity: 0,
-        duration: 0.7,
-        onComplete: () => {
-          loader.style.display = "none";
-        }
-      });
-    }
-  }
-
-  function initCarditoLoader() {
-    const loader = document.getElementById("cardito-loader");
-    if (!loader) return;
-
-    const letters = CARDITO_LETTER_IDS.map(id => document.getElementById(id));
-    const heart = document.getElementById("cardito-heart");
-
-    if (!letters.every(Boolean) || !heart || !window.gsap) {
-      // اگر تصاویر یا GSAP آماده نشدند، انیمیشن را نادیده بگیر ولی اجازه بده Unity ادامه دهد
-      window.CARDITO_ANIM_DONE = true;
-      tryStartUnityReveal(true);
-      return;
+      pointer-events: none;
     }
 
-    requestAnimationFrame(() => {
-      (async () => {
+    /* ⭐ NEW → متن لودینگ */
+    #loader-text {
+      position: absolute;
+      bottom: calc(50% - 15vh);
+      font-family: sans-serif;
+      font-size: 2vh;
+      color: #444;
+      opacity: 0;
+      text-align: center;
+      pointer-events: none;
+    }
 
-        // ⭐ مرحله ۱: تضمین لود کامل و decode کامل تصاویر
-        try {
-          for (let el of letters) {
-            if (el.decode) {
-              await el.decode();
-            }
-          }
-        } catch (e) {
-          console.warn("[Loader] decode() failed – fallback to naturalWidth");
-        }
+    @media (max-width: 600px) {
+      .letter {
+        height: 12vh;
+        width: auto;
+      }
+      #cardito-heart {
+        height: 4vh;
+        width: auto;
+      }
+      #loader-text {
+        font-size: 2.2vh;
+        bottom: 14vh;
+      }
+    }
+  </style>
 
-        // ⭐ مرحله ۲ (نسخه نهایی): محاسبه عرض واقعی (scaled width) بعد از decode
-        const widths = [];
+  <div id="cardito-loader">
+    <img class="letter" id="L1" src="1.png">
+    <img class="letter" id="L2" src="2.png">
+    <img class="letter" id="L3" src="3.png">
+    <img class="letter" id="L4" src="4.png">
+    <img class="letter" id="L5" src="5.png">
+    <img class="letter" id="L6" src="6.png">
+    <img class="letter" id="L7" src="7.png">
+    <img id="cardito-heart" src="heart.png">
+
+    <!-- ⭐ NEW: متن لودینگ -->
+    <div id="loader-text">Loading… 0%<br>Get ready to play!</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+  <script>
+    window.CARDITO_ANIM_DONE = false;
+    window.UnityLoadProgress = window.UnityLoadProgress || 0;
+
+    const CARDITO_LETTER_IDS = ["L1","L2","L3","L4","L5","L6","L7"];
+    let HEART_BEATS = 0;
+
+    const vw = Math.max(document.documentElement.clientWidth, window.innerWidth);
+    const vh = Math.max(document.documentElement.clientHeight, window.innerHeight);
+
+    /* ⭐ NEW: آپدیت درصد */
+    setInterval(() => {
+      const t = document.getElementById("loader-text");
+      if (!t) return;
+      const p = Math.floor((window.UnityLoadProgress || 0) * 100);
+      t.innerHTML = `Loading… ${p}%<br>Get ready to play!`;
+    }, 100);
+
+    function tryStartUnityReveal() {
+      const loader = document.getElementById("cardito-loader");
+      if (!loader || !window.gsap) return;
+
+      const ready = (window.UnityLoadProgress || 0) >= 0.9;
+      if (ready && window.CARDITO_ANIM_DONE && HEART_BEATS >= 5) {
+        gsap.to(loader, {
+          opacity: 0,
+          duration: 0.7,
+          onComplete: () => (loader.style.display = "none")
+        });
+      }
+    }
+
+    function initCarditoLoader() {
+      const loader = document.getElementById("cardito-loader");
+      const letters = CARDITO_LETTER_IDS.map(id => document.getElementById(id));
+      const heart = document.getElementById("cardito-heart");
+      const text = document.getElementById("loader-text");
+
+      if (!loader || !letters.every(Boolean) || !heart) {
+        window.CARDITO_ANIM_DONE = true;
+        tryStartUnityReveal();
+        return;
+      }
+
+      requestAnimationFrame(async () => {
+
+        /* اندازه واقعی همه PNG ها */
+        const realWidths = [];
         for (let el of letters) {
-          if (!el.naturalWidth) {
-            await new Promise(r => setTimeout(r, 10));
-          }
-
-          const rect = el.getBoundingClientRect();
-          let scaledWidth = rect.width || el.naturalWidth || 0;
-          if (!scaledWidth) scaledWidth = 1;
-
-          widths.push(scaledWidth);
+          try { if (el.decode) await el.decode(); } catch {}
+          realWidths.push(el.getBoundingClientRect().width);
         }
 
-        let total = widths.reduce((a, b) => a + b, 0);
-        const startX = -total / 2;
+        /* محاسبه چیدمان */
+        const total = realWidths.reduce((a,b)=>a+b,0);
+        const startX = -total/2;
         const positions = {};
         let cursor = startX;
 
-        for (let i = 0; i < widths.length; i++) {
-          let center = cursor + widths[i] / 2;
-          positions[CARDITO_LETTER_IDS[i]] = center;
-          cursor += widths[i];
+        for (let i=0;i<letters.length;i++) {
+          const w = realWidths[i];
+          positions[CARDITO_LETTER_IDS[i]] = cursor + w/2;
+          cursor += w;
         }
 
-        const dropYStart = -vh * 0.5;
+        const dropYStart = -vh*0.5;
         const dropYEnd = 0;
 
+        /* جایگذاری اولیه */
         letters.forEach((el, idx) => {
-          const id = CARDITO_LETTER_IDS[idx];
-          gsap.set(el, { x: positions[id], y: dropYStart, opacity: 0 });
+          gsap.set(el, {
+            x: positions[CARDITO_LETTER_IDS[idx]] - realWidths[idx]/2,
+            y: dropYStart,
+            opacity: 0
+          });
         });
 
         gsap.set(heart, { opacity: 0, scale: 0.8 });
 
-        const tl = gsap.timeline({
-          defaults: { duration: 1.4, ease: "power2.out" }
-        });
+        /* ⭐ NEW: ظاهر شدن متن */
+        gsap.set(text, { opacity: 0 });
+        
+        const tl = gsap.timeline({ defaults:{ duration:1.4, ease:"power2.out" } });
 
-        tl.to(letters, {
-          y: dropYEnd,
-          opacity: 1,
-          stagger: 0.15
-        }, 0)
-        .to({}, { duration: 1 })
-        .add(() => {
-          const iIndex = CARDITO_LETTER_IDS.indexOf("L5");
-          const iEl = letters[iIndex];
-          const iRect = iEl.getBoundingClientRect();
-          const loaderRect = loader.getBoundingClientRect();
+        tl.to(letters, { y: dropYEnd, opacity:1, stagger:0.15 }, 0)
+          .to(text, { opacity:1, duration:1.0 }, "-=0.5") /* نمایش متن */
+          .to({}, { duration:1 })
+          .add(() => {
+            const iEl = document.getElementById("L5");
+            const iRect = iEl.getBoundingClientRect();
+            const loaderRect = loader.getBoundingClientRect();
 
-          const offsetX =
-            (iRect.left + iRect.width / 2) -
-            (loaderRect.left + loaderRect.width / 2);
+            const offsetX =
+              (iRect.left + iRect.width/2) -
+              (loaderRect.left + loaderRect.width/2);
 
-          const offsetYTopOfI =
-            iRect.top - (loaderRect.top + loaderRect.height / 2);
+            const finalY =
+              (iRect.top - loaderRect.height/2) - 25;
 
-          const baseHeartOffsetY = isMobile ? -30 : -5;
-          const heartOffsetY = baseHeartOffsetY * scaleH;
+            gsap.set(heart, { x: offsetX, y: finalY });
+          })
+          .to(heart, { opacity:1, scale:1, duration:0.45 })
+          .call(() => {
+            window.CARDITO_ANIM_DONE = true;
 
-          const finalY = offsetYTopOfI + heartOffsetY;
-
-          gsap.set(heart, { x: offsetX, y: finalY });
-        })
-        .to(heart, {
-          opacity: 1,
-          scale: 1,
-          duration: 0.45,
-          ease: "power2.out"
-        })
-        .call(() => {
-          window.CARDITO_ANIM_DONE = true;
-
-          gsap.to("#cardito-heart", {
-            scale: 1.12,
-            duration: 0.45,
-            ease: "power1.inOut",
-            yoyo: true,
-            repeat: -1,
-            onRepeat: () => {
-              HEART_BEATS++;
-              tryStartUnityReveal();
-            }
+            gsap.to("#cardito-heart", {
+              scale:1.12,
+              duration:0.45,
+              yoyo:true,
+              repeat:-1,
+              onRepeat:() => {
+                HEART_BEATS++;
+                tryStartUnityReveal();
+              }
+            });
           });
-        });
-
-      })();
-    });
-  }
-
-  // لود تصاویر + شروع لودر
-  window.addEventListener("load", () => {
-    const imgs = CARDITO_LETTER_IDS.map(id => document.getElementById(id));
-    const heart = document.getElementById("cardito-heart");
-    const all = [...imgs, heart].filter(Boolean);
-
-    let remaining = all.length;
-    if (remaining === 0) {
-      initCarditoLoader();
-      return;
+      });
     }
 
-    const done = () => {
-      remaining--;
-      if (remaining <= 0) initCarditoLoader();
-    };
+    window.addEventListener("load", () => {
+      const imgs = CARDITO_LETTER_IDS.map(id => document.getElementById(id));
+      const heart = document.getElementById("cardito-heart");
+      const all = [...imgs, heart];
 
-    all.forEach(img => {
-      if (img.complete) {
-        done();
-      } else {
-        img.addEventListener("load", done, { once: true });
-        img.addEventListener("error", done, { once: true });
-      }
+      let remaining = all.length;
+      const done = () => (--remaining <= 0 && initCarditoLoader());
+
+      all.forEach(img => {
+        img.complete ? done() :
+          img.addEventListener("load", done, { once:true });
+      });
     });
-  });
-</script>
+  </script>
 
 
     <!-- ================================
@@ -504,7 +489,7 @@
         var meta = document.createElement("meta");
         meta.name = "viewport";
         meta.content =
-          "width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes";
+          "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
         document.head.appendChild(meta);
         container.className = "unity-mobile";
         canvas.className = "unity-mobile";
