@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en-us">
   <head>
-    <meta charset="utf-8" />
+       <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Cardito Web</title>
@@ -246,6 +246,15 @@
       opacity: 0;
       text-align: center;
       pointer-events: none;
+    }
+
+    @media (min-width: 601px) and (max-width: 1024px) {
+      .letter {
+        height: 15vh;   /* کوچکتر از موبایل، اما تناسب کل لوگو حفظ می‌شود */
+      }
+      #cardito-heart {
+        height: 6vh; /* هماهنگ با حروف */
+      }
     }
 
     @media (max-width: 600px) {
@@ -574,5 +583,3 @@
       fitCanvas();
     </script>
 
-  </body>
-</html>
