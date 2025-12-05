@@ -313,11 +313,13 @@
 
       const ready = (window.UnityLoadProgress || 0) >= 0.9;
       if (ready && window.CARDITO_ANIM_DONE && HEART_BEATS >= 5) {
-        gsap.to(loader, {
-          opacity: 0,
-          duration: 0.7,
-          onComplete: () => (loader.style.display = "none")
-        });
+        setTimeout(() => {
+          gsap.to(loader, {
+            opacity: 0,
+            duration: 0.7,
+            onComplete: () => (loader.style.display = "none")
+          });
+        }, 500);
       }
     }
 
@@ -390,13 +392,13 @@
 
             gsap.set(heart, { x: offsetX, y: finalY });
           })
-          .to(heart, { opacity:1, scale:1, duration:0.45 })
+          .to(heart, { opacity:1, scale:1, duration:0.5 })
           .call(() => {
             window.CARDITO_ANIM_DONE = true;
 
             gsap.to("#cardito-heart", {
               scale:1.12,
-              duration:0.45,
+              duration:0.5,
               yoyo:true,
               repeat:-1,
               onRepeat:() => {
@@ -583,3 +585,16 @@
       fitCanvas();
     </script>
 
+    <script>
+    document.addEventListener("visibilitychange", function () {
+        if (document.hidden) {
+            console.log("[HTML] TAB HIDDEN → send OnAppHidden");
+            window.sendMessage && window.sendMessage("GameManager", "OnAppHidden", "");
+        } else {
+            console.log("[HTML] TAB VISIBLE → send OnAppVisible");
+            window.sendMessage && window.sendMessage("GameManager", "OnAppVisible", "");
+        }
+    });
+    </script>
+  </body>
+</html>

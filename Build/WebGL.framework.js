@@ -2086,13 +2086,13 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  5363568: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
- 5363629: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
- 5363693: function() {return Module.webglContextAttributes.powerPreference;},  
- 5363751: function() {Module['emscripten_get_now_backup'] = performance.now;},  
- 5363806: function($0) {performance.now = function() { return $0; };},  
- 5363854: function($0) {performance.now = function() { return $0; };},  
- 5363902: function() {performance.now = Module['emscripten_get_now_backup'];}
+  5364768: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
+ 5364829: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
+ 5364893: function() {return Module.webglContextAttributes.powerPreference;},  
+ 5364951: function() {Module['emscripten_get_now_backup'] = performance.now;},  
+ 5365006: function($0) {performance.now = function() { return $0; };},  
+ 5365054: function($0) {performance.now = function() { return $0; };},  
+ 5365102: function() {performance.now = Module['emscripten_get_now_backup'];}
 };
 
 
@@ -5069,7 +5069,7 @@ var ASM_CONSTS = {
             });
             const addr = accounts[0];
             console.log("[Web3Bridge] Injected address:", addr);
-            SendMessage(gameObjectName, "OnWeb3Address", addr);
+            SendMessage(gameObjectName, "OnWeb3Address", addr || "");
           } catch (err) {
             console.warn("[Web3Bridge] Injected error:", err);
             SendMessage(gameObjectName, "OnWeb3Error", err.message || "Request rejected");
@@ -5111,7 +5111,7 @@ var ASM_CONSTS = {
               metadata: {
                 name: "Cardito",
                 description: "Cardito WalletConnect",
-                url: "https://cardito.app",
+                url: window.location.origin,
                 icons: ["https://cardito.app/logo.png"]
               },
               redirect: {
@@ -5135,7 +5135,7 @@ var ASM_CONSTS = {
   
           const addr = accounts[0];
           console.log("[Web3Bridge] WC address:", addr);
-          SendMessage(gameObjectName, "OnWeb3Address", addr);
+          SendMessage(gameObjectName, "OnWeb3Address", addr || "");
   
         } catch (err) {
           console.error("[Web3Bridge] WC GetAddress error:", err);
