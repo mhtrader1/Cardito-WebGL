@@ -5069,7 +5069,12 @@ var ASM_CONSTS = {
             });
             const addr = accounts[0];
             console.log("[Web3Bridge] Injected address:", addr);
-            SendMessage(gameObjectName, "OnWeb3Address", addr || "");
+            if (!addr) {
+                console.warn("[Web3Bridge] No wallet account returned");
+                SendMessage(gameObjectName, "OnWeb3Error", "No wallet account");
+                return;
+            }
+            SendMessage(gameObjectName, "OnWeb3Address", addr);
           } catch (err) {
             console.warn("[Web3Bridge] Injected error:", err);
             SendMessage(gameObjectName, "OnWeb3Error", err.message || "Request rejected");
@@ -5081,10 +5086,10 @@ var ASM_CONSTS = {
          * 2) WalletConnect
          ***********************/
         const WCProvider =
+          (globalThis.EthereumProvider) ||
+          (globalThis.WalletConnectEthereumProvider) ||
           (globalThis["@walletconnect/ethereum-provider"] &&
-            globalThis["@walletconnect/ethereum-provider"].EthereumProvider) ||
-          globalThis.WalletConnectEthereumProvider ||
-          window.WalletConnectEthereumProvider;
+            globalThis["@walletconnect/ethereum-provider"].EthereumProvider);
   
         if (!WCProvider) {
           console.error("[Web3Bridge] WC provider not found");
@@ -5115,7 +5120,7 @@ var ASM_CONSTS = {
                 icons: ["https://cardito.app/logo.png"]
               },
               redirect: {
-                universal: "https://game.cardito.app/"
+                universal: window.location.origin + "/"
               }
             });
   
@@ -5135,7 +5140,12 @@ var ASM_CONSTS = {
   
           const addr = accounts[0];
           console.log("[Web3Bridge] WC address:", addr);
-          SendMessage(gameObjectName, "OnWeb3Address", addr || "");
+          if (!addr) {
+              console.warn("[Web3Bridge] No wallet account returned");
+              SendMessage(gameObjectName, "OnWeb3Error", "No wallet account");
+              return;
+          }
+          SendMessage(gameObjectName, "OnWeb3Address", addr);
   
         } catch (err) {
           console.error("[Web3Bridge] WC GetAddress error:", err);
