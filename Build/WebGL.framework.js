@@ -2086,13 +2086,13 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  5364848: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
- 5364909: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
- 5364973: function() {return Module.webglContextAttributes.powerPreference;},  
- 5365031: function() {Module['emscripten_get_now_backup'] = performance.now;},  
- 5365086: function($0) {performance.now = function() { return $0; };},  
- 5365134: function($0) {performance.now = function() { return $0; };},  
- 5365182: function() {performance.now = Module['emscripten_get_now_backup'];}
+  5365376: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
+ 5365437: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
+ 5365501: function() {return Module.webglContextAttributes.powerPreference;},  
+ 5365559: function() {Module['emscripten_get_now_backup'] = performance.now;},  
+ 5365614: function($0) {performance.now = function() { return $0; };},  
+ 5365662: function($0) {performance.now = function() { return $0; };},  
+ 5365710: function() {performance.now = Module['emscripten_get_now_backup'];}
 };
 
 
@@ -5219,11 +5219,6 @@ var ASM_CONSTS = {
   
           console.log("[Web3Bridge] WC signature:", sig);
           SendMessage(gameObjectName, "OnWeb3Signature", sig);
-  
-          // 🔥 redirect AFTER signature delivery
-          setTimeout(() => {
-              window.location.href = window.location.origin + "/?signed=1";
-          }, 500);
   
         } catch (err) {
           console.error("[Web3Bridge] WC Sign error:", err);
