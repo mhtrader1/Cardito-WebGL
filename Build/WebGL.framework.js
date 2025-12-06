@@ -2086,13 +2086,13 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  5364768: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
- 5364829: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
- 5364893: function() {return Module.webglContextAttributes.powerPreference;},  
- 5364951: function() {Module['emscripten_get_now_backup'] = performance.now;},  
- 5365006: function($0) {performance.now = function() { return $0; };},  
- 5365054: function($0) {performance.now = function() { return $0; };},  
- 5365102: function() {performance.now = Module['emscripten_get_now_backup'];}
+  5364848: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
+ 5364909: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
+ 5364973: function() {return Module.webglContextAttributes.powerPreference;},  
+ 5365031: function() {Module['emscripten_get_now_backup'] = performance.now;},  
+ 5365086: function($0) {performance.now = function() { return $0; };},  
+ 5365134: function($0) {performance.now = function() { return $0; };},  
+ 5365182: function() {performance.now = Module['emscripten_get_now_backup'];}
 };
 
 
@@ -5069,12 +5069,7 @@ var ASM_CONSTS = {
             });
             const addr = accounts[0];
             console.log("[Web3Bridge] Injected address:", addr);
-            if (!addr) {
-                console.warn("[Web3Bridge] No wallet account returned");
-                SendMessage(gameObjectName, "OnWeb3Error", "No wallet account");
-                return;
-            }
-            SendMessage(gameObjectName, "OnWeb3Address", addr);
+            SendMessage(gameObjectName, "OnWeb3Address", addr || "");
           } catch (err) {
             console.warn("[Web3Bridge] Injected error:", err);
             SendMessage(gameObjectName, "OnWeb3Error", err.message || "Request rejected");
@@ -5118,9 +5113,6 @@ var ASM_CONSTS = {
                 description: "Cardito WalletConnect",
                 url: window.location.origin,
                 icons: ["https://cardito.app/logo.png"]
-              },
-              redirect: {
-                universal: window.location.origin + "/"
               }
             });
   
@@ -5140,12 +5132,7 @@ var ASM_CONSTS = {
   
           const addr = accounts[0];
           console.log("[Web3Bridge] WC address:", addr);
-          if (!addr) {
-              console.warn("[Web3Bridge] No wallet account returned");
-              SendMessage(gameObjectName, "OnWeb3Error", "No wallet account");
-              return;
-          }
-          SendMessage(gameObjectName, "OnWeb3Address", addr);
+          SendMessage(gameObjectName, "OnWeb3Address", addr || "");
   
         } catch (err) {
           console.error("[Web3Bridge] WC GetAddress error:", err);
@@ -5228,11 +5215,15 @@ var ASM_CONSTS = {
           const sig = await g.CarditoWC.request({
             method: "personal_sign",
             params: [message, from],
-            chainId: cid
           });
   
           console.log("[Web3Bridge] WC signature:", sig);
           SendMessage(gameObjectName, "OnWeb3Signature", sig);
+  
+          // 🔥 redirect AFTER signature delivery
+          setTimeout(() => {
+              window.location.href = window.location.origin + "/?signed=1";
+          }, 500);
   
         } catch (err) {
           console.error("[Web3Bridge] WC Sign error:", err);

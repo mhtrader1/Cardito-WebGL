@@ -300,18 +300,25 @@ window.Web3Bridge.PayStable = async function (sku, amount, tokenSymbol, chainId)
     // -------------------------------
     // بررسی اینکه شبکه فعلی کیف پول == chainId مورد نیاز است
     // -------------------------------
+    let ua = navigator.userAgent || "";
+    let isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
     let currentChain = await provider.send("eth_chainId", []);
     currentChain = String(currentChain);
     const hexChain = "0x" + cid.toString(16);
 
     if (currentChain.toLowerCase() !== hexChain.toLowerCase()) {
-      console.warn("[Web3Bridge] Switching chain:", currentChain, "→", hexChain);
-      try {
-        await provider.send("wallet_switchEthereumChain", [{ chainId: hexChain }]);
-      } catch (switchErr) {
-        console.error("[Web3Bridge] Cannot switch chain", switchErr);
-        sendMessage("StoreManager", "ShowStoreError", "Please switch network in your wallet.");
-        return;
+      if (isMobile) {
+          console.warn("[Web3Bridge] Mobile wallet → skip switch chain");
+          // روی موبایل سوییچ انجام نمی‌دهیم
+      } else {
+          console.warn("[Web3Bridge] Switching chain:", currentChain, "→", hexChain);
+          try {
+            await provider.send("wallet_switchEthereumChain", [{ chainId: hexChain }]);
+          } catch (switchErr) {
+            console.error("[Web3Bridge] Cannot switch chain", switchErr);
+            sendMessage("StoreManager", "ShowStoreError", "Please switch network in your wallet.");
+            return;
+          }
       }
     }
 
