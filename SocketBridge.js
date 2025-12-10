@@ -126,7 +126,7 @@ window.Web3_SignMessage = async function (gameObjectName, msg) {
     // 1) آدرس فعال را از همان provider بگیر (MetaMask یا WalletConnect)
     const accounts = await provider.request({ method: "eth_requestAccounts" });
     const from = accounts[0];
-
+    
     // 2) امضا با همان provider (نه فقط window.ethereum)
     const signature = await provider.request({
       method: "personal_sign",
@@ -159,232 +159,139 @@ window.SetUnityActiveWallet = function(addr) {
 };
 
 window.Web3Bridge = {};
-// -----------------------------------------------
-// getEip1193Provider  (MetaMask OR WalletConnect)
-// -----------------------------------------------
-async function getEip1193Provider(chainId) {
-  const ua = navigator.userAgent || "";
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-  const hasInjected = typeof window.ethereum !== "undefined";
 
-  // -----------------------------
-  // 1) ALWAYS use injected if exists (desktop + mobile)
-  // -----------------------------
-  if (hasInjected) {
-    console.log("[Web3Bridge] Using injected provider");
+// ---------- getEip1193Provider ----------
+async function getEip1193Provider(chainId) {
+  const hasEthereum = typeof window.ethereum !== "undefined";
+  if (hasEthereum) {
     return window.ethereum;
   }
-
-  // -----------------------------
-  // 2) Detect WalletConnect UMD (2 possible locations)
-  // -----------------------------
-  const WC_Global =
-    globalThis["@walletconnect/ethereum-provider"]?.EthereumProvider ||
-    globalThis.WalletConnectEthereumProvider ||
-    window.WalletConnectEthereumProvider;
-
-  if (!WC_Global) {
-    console.error("[Web3Bridge] ❌ WC provider not found in globals");
-    throw new Error("No Web3 provider available");
+  const WC = window.WalletConnectProvider || window.WalletConnectEthereumProvider
+           || globalThis.WalletConnectEthereumProvider || globalThis["@walletconnect/ethereum-provider"]?.EthereumProvider;
+  if (!WC) {
+    throw new Error("No Web3 provider found");
   }
-
-  const projectId =
-    window.CARDITO_WC_PROJECT_ID ||
-    "7a03ac67d724cd7a88e72da1ec30c7f6";
-
-  const cid = parseInt(chainId || 1);
-
-  // -----------------------------
-  // 3) MOBILE BROWSER → show modal (QR + deeplink)
-  // -----------------------------
-  if (isMobile) {
-    console.log("[Web3Bridge] Initializing WalletConnect (MOBILE)");
-
-    const wc = await WC_Global.init({
-      projectId,
-      chains: [cid],
-      optionalChains: [cid],
-      showQrModal: true,          // ← مهم‌ترین بخش
-      enableMobileLinks: true,    // ← WC v2: پاسخی برای دیپ‌لینک
-      metadata: {
-        name: "Cardito Game",
-        description: "Cardito WalletConnect Integration",
-        url: "https://game.cardito.app",
-        icons: ["https://cardito.app/logo.png"]
-      }
-    });
-
-    console.log("[Web3Bridge] WC ready (mobile)");
-    return wc;
-  }
-
-  // -----------------------------
-  // 4) DESKTOP → WC with QR modal
-  // -----------------------------
-  console.log("[Web3Bridge] WC on desktop");
-
-  const wcDesktop = await WC_Global.init({
-    projectId,
-    chains: [cid],
-    optionalChains: [cid],
+  const wc = await WC.init({
+    projectId: window.CARDITO_WC_PROJECT_ID,
+    chains: [parseInt(chainId, 10)],
+    optionalChains: [parseInt(chainId, 10)],
     showQrModal: true,
-    enableMobileLinks: false
+    enableMobileLinks: true,
+    metadata: {
+      name: "Cardito",
+      description: "Cardito Payment",
+      url: window.location.origin,
+      icons: ["https://cardito.app/logo.png"]
+    }
   });
+  await wc.connect();
+  // 🔥 Fix for Mobile Chrome WC — wait until namespace accounts become available
+  let tries = 0;
+  while (tries < 10) {
+    try {
+      const sess = wc.session || wc._client?.session || null;
+      const accounts =
+        sess?.namespaces?.eip155?.accounts ||
+        sess?.state?.accounts ||
+        null;
 
-  return wcDesktop;
+      if (accounts && accounts.length > 0) break;
+    } catch (_) {}
+    await new Promise(r => setTimeout(r, 200));
+    tries++;
+  }
+  return wc;
 }
 
-// ========================================================
-// 💰 پرداخت واقعی استیبل‌کوین برای WebGL (MetaMask / Wallet Browser)
-// ========================================================
+// ---------- PayStable ----------
 window.Web3Bridge.PayStable = async function (sku, amount, tokenSymbol, chainId) {
   try {
-    const ethLib = (typeof window !== "undefined" && window.ethers)
-      || (typeof globalThis !== "undefined" && globalThis.ethers);
-
-    if (!ethLib) {
-      console.error("[Web3Bridge] ❌ ethers.js not loaded (window.ethers/globalThis.ethers is missing)");
-      if (typeof sendMessage === "function") {
-        sendMessage(
-          "StoreManager",
-          "ShowStoreError",
-          "Web3 library (ethers.js) is not loaded. Please check index.html scripts."
-        );
-      }
+    const eth = window.ethers;
+    if (!eth) {
+      console.error("[PayStable] ✖ ethers not found");
+      sendMessage("StoreManager", "ShowStoreError", "Blockchain library missing");
       return;
     }
 
     const cid = parseInt(chainId || 1, 10);
     const sym = String(tokenSymbol || "USDC").toUpperCase();
     const amtStr = String(amount);
-    
-    const eip1193 = await getEip1193Provider(cid);
-    const provider = new ethLib.providers.Web3Provider(eip1193);
-    const signer = provider.getSigner();
 
-    // --- Wallet mismatch protection ---
-    const currentMM = (await signer.getAddress()).toLowerCase();
-    const unityWallet = (window.UnityActiveWallet || "").toLowerCase();
+    const providerRaw = await getEip1193Provider(cid);
 
-    if (unityWallet && currentMM !== unityWallet) {
-        console.error("[Web3Bridge] ❌ Wallet mismatch:", { currentMM, unityWallet });
-        if (typeof sendMessage === "function") {
-            sendMessage("StoreManager", "ShowStoreError", "Your connected wallet does not match the active wallet.");
+    // ---- If injected provider (MetaMask/Coinbase), enforce chain switch ----
+    const isInjected =
+      typeof window.ethereum !== "undefined" &&
+      providerRaw === window.ethereum;
+
+    if (isInjected) {
+      const requiredHex = "0x" + cid.toString(16);
+      try {
+        const current = await providerRaw.request({ method: "eth_chainId" });
+        if (current.toLowerCase() !== requiredHex.toLowerCase()) {
+          console.log("[PayStable] Injected wallet → switching chain", requiredHex);
+
+          await providerRaw.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: requiredHex }]
+          });
+          await providerRaw.request({ method: "eth_chainId" });
+          await new Promise(r => setTimeout(r, 300));
         }
-        return;
+      } catch (switchErr) {
+        console.warn("[PayStable] switch failed → letting wallet handle", switchErr.message);
+      }
     }
 
-    console.log("[Web3Bridge] Web3_PayStablecoin called:", { sku, amtStr, sym, cid });
+    const provider = new eth.providers.Web3Provider(providerRaw);
+    const signer = provider.getSigner();
+    const wallet = (await signer.getAddress()).toLowerCase();
 
-    // -------------------------------
-    // گرفتن آدرس توکن و خزانه از سرور (منبع مرکزی: server.js)
-    // -------------------------------
     const payCfg = await loadPaymentConfig();
-    const chainTokens = payCfg.tokens[String(cid)];
-
-    if (!chainTokens || !chainTokens[sym]) {
-      console.error("[Web3Bridge] ❌ Token not supported for this chain:", cid, sym);
-      if (typeof sendMessage === "function") {
-        sendMessage("StoreManager", "ShowStoreError", "Token not supported on this chain.");
-      }
+    const mapping = payCfg.tokens[String(cid)];
+    if (!mapping || !mapping[sym]) {
+      sendMessage("StoreManager", "ShowStoreError", "Token not supported on chain");
       return;
     }
-
-    // روی سرور TOKEN_MAP[chainId][symbol] معمولاً خود آدرس است (string)
-    const tokenAddress = String(chainTokens[sym]).toLowerCase();
-    const decimals = TOKEN_DECIMALS[cid] ?? 6;
-
-    // -------------------------------
-    // بررسی اینکه شبکه فعلی کیف پول == chainId مورد نیاز است
-    // -------------------------------
-    let currentChain = await provider.send("eth_chainId", []);
-    currentChain = String(currentChain);
-    const hexChain = "0x" + cid.toString(16);
-
-    if (currentChain.toLowerCase() !== hexChain.toLowerCase()) {
-      console.warn("[Web3Bridge] Switching chain:", currentChain, "→", hexChain);
-      try {
-        await provider.send("wallet_switchEthereumChain", [{ chainId: hexChain }]);
-      } catch (switchErr) {
-        console.error("[Web3Bridge] Cannot switch chain", switchErr);
-        sendMessage("StoreManager", "ShowStoreError", "Please switch network in your wallet.");
-        return;
-      }
-    }
-
-    // -------------------------------
-    // ساخت مقدار پرداخت با توجه به decimals
-    // -------------------------------
-    const amountWei = ethLib.utils.parseUnits(amtStr, decimals);
-
-    // -------------------------------
-    // آدرس خزانه — از سرور (TREASURY_ADDRESS) می‌آید
-    // -------------------------------
+    const tokenAddr = mapping[sym];
+    const decimals = TOKEN_DECIMALS[cid] || 6;
+    const amountWei = eth.utils.parseUnits(amtStr, decimals);
     const treasury = (payCfg.treasury || "").toLowerCase();
     if (!treasury) {
-      console.error("[Web3Bridge] ❌ Missing treasury address in payment config");
-      if (typeof sendMessage === "function") {
-        sendMessage("StoreManager", "ShowStoreError", "Payment configuration missing treasury address.");
-      }
+      sendMessage("StoreManager", "ShowStoreError", "Treasury address config missing");
       return;
     }
 
-    console.log("[Web3Bridge] Sending stablecoin payment:", {
-      token: tokenAddress,
-      amount: amountWei.toString(),
-      treasury
-    });
+    const iface = new eth.utils.Interface([
+      "function transfer(address to, uint256 amount)"
+    ]);
+    const data = iface.encodeFunctionData("transfer", [treasury, amountWei]);
 
-    // -------------------------------
-    // قالب ERC20 استاندارد
-    // -------------------------------
-    const ERC20_ABI = [
-      "function transfer(address to, uint256 amount) public returns (bool)"
-    ];
-
-    const tokenContract = new ethLib.Contract(tokenAddress, ERC20_ABI, signer);
-
-    // -------------------------------
-    // ارسال تراکنش
-    // -------------------------------
-    const tx = await tokenContract.transfer(treasury, amountWei);
-    console.log("[Web3Bridge] TX sent:", tx.hash);
-
-    // -------------------------------
-    // ارسال txHash به Unity
-    // -------------------------------
-    const payload = {
-      sku,
-      hash: tx.hash,
-      chainId: cid,
-      token: sym
+    const txParams = {
+      from: wallet,
+      to: tokenAddr,
+      data: data,
+      value: "0x0"
     };
 
-    sendMessage("StoreManager", "OnWebGLTxSubmitted", JSON.stringify(payload));
+    console.log("[PayStable] Sending raw tx:", txParams);
+
+    const txHash = await providerRaw.request({
+      method: "eth_sendTransaction",
+      params: [txParams]
+    });
+
+    console.log("[PayStable] TX hash:", txHash);
+    sendMessage("StoreManager", "OnWebGLTxSubmitted", JSON.stringify({
+      sku, hash: txHash, chainId: cid, token: sym
+    }));
 
   } catch (err) {
-      console.error("[Web3Bridge] Web3_PayStablecoin ERROR:", err);
-
-      let userMessage = "Payment failed. Please try again.";
-
-      const raw = err?.message || "";
-
-      if (raw.includes("underlying network changed")) {
-          userMessage = "Your wallet switched networks. Please switch back and try again.";
-      }
-      else if (raw.includes("insufficient") || raw.includes("exceeds balance")) {
-          userMessage = "Not enough balance for this purchase.";
-      }
-      else if (raw.includes("user rejected")) {
-          userMessage = "Transaction was rejected.";
-      }
-      else if (raw.includes("network") || raw.includes("chain")) {
-          userMessage = "Network mismatch. Please change your network in wallet.";
-      }
-
-      if (typeof sendMessage === "function") {
-          sendMessage("StoreManager", "ShowStoreError", userMessage);
-      }
-      return;
-    }
+    console.error("[PayStable] ERROR:", err);
+    const raw = (err && err.message) || "";
+    let msg = "Payment failed";
+    if (raw.toLowerCase().includes("insufficient")) msg = "Not enough balance";
+    if (raw.toLowerCase().includes("rejected")) msg = "User rejected";
+    sendMessage("StoreManager", "ShowStoreError", msg);
+  }
 };
