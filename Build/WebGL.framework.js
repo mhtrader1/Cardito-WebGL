@@ -5067,12 +5067,12 @@ var ASM_CONSTS = {
             const accounts = await window.ethereum.request({
               method: "eth_requestAccounts"
             });
-            const addr = accounts[0];
+            const addr = accounts && accounts.length ? accounts[0] : "";
             console.log("[Web3Bridge] Injected address:", addr);
             SendMessage(gameObjectName, "OnWeb3Address", addr || "");
           } catch (err) {
             console.warn("[Web3Bridge] Injected error:", err);
-            SendMessage(gameObjectName, "OnWeb3Error", err.message || "Request rejected");
+            SendMessage(gameObjectName, "OnWeb3Error", err && err.message ? err.message : "Request rejected");
           }
           return;
         }
@@ -5124,19 +5124,61 @@ var ASM_CONSTS = {
           }
   
           /*****************************
-           * Request Accounts
+           * Resolve Address (v2 session → fallback to request)
            *****************************/
-          const accounts = await g.CarditoWC.request({
-            method: "eth_requestAccounts"
-          });
+          let addr = null;
+          let fromSession = false;
   
-          const addr = accounts[0];
-          console.log("[Web3Bridge] WC address:", addr);
+          try {
+            const sess =
+              g.CarditoWC.session ||
+              (g.CarditoWC._client && g.CarditoWC._client.session) ||
+              null;
+  
+            const ns = sess && sess.namespaces
+              ? (sess.namespaces.eip155 || sess.namespaces["eip155"])
+              : null;
+  
+            const accountsNS = ns && Array.isArray(ns.accounts) ? ns.accounts : null;
+  
+            if (accountsNS && accountsNS.length > 0) {
+              const full = String(accountsNS[0]); // eip155:1:0xabc...
+              const parts = full.split(":");
+              if (parts.length >= 3) {
+                addr = parts[2];
+                fromSession = true;
+              }
+            }
+          } catch (e) {
+            console.warn("[Web3Bridge] WC session parse error:", e);
+          }
+  
+          // اگر هنوز آدرس نداریم، fallback به eth_accounts
+          if (!addr) {
+            try {
+              const accounts = await g.CarditoWC.request({
+                method: "eth_accounts"
+              });
+              if (accounts && accounts.length > 0) {
+                addr = accounts[0];
+              }
+            } catch (e) {
+              console.warn("[Web3Bridge] WC eth_accounts error:", e);
+            }
+          }
+  
+          // آخرین تلاش: اگر UnityActiveWallet قبلاً ست شده بود
+          if (!addr && typeof window !== "undefined" && window.UnityActiveWallet) {
+            addr = window.UnityActiveWallet;
+          }
+  
+          console.log("[Web3Bridge] WC address (resolved):", addr, { fromSession });
+  
           SendMessage(gameObjectName, "OnWeb3Address", addr || "");
   
         } catch (err) {
           console.error("[Web3Bridge] WC GetAddress error:", err);
-          SendMessage(gameObjectName, "OnWeb3Error", err.message || "WalletConnect error");
+          SendMessage(gameObjectName, "OnWeb3Error", err && err.message ? err.message : "WalletConnect error");
         }
       })();
     }
@@ -5173,7 +5215,13 @@ var ASM_CONSTS = {
               method: "eth_accounts"
             });
   
-            const from = accounts[0];
+            const from = accounts && accounts.length ? accounts[0] : null;
+            if (!from) {
+              console.warn("[Web3Bridge] Injected sign: no accounts");
+              SendMessage(gameObjectName, "OnWeb3Error", "No wallet account");
+              return;
+            }
+  
             const sig = await window.ethereum.request({
               method: "personal_sign",
               params: [message, from]
@@ -5183,7 +5231,7 @@ var ASM_CONSTS = {
             SendMessage(gameObjectName, "OnWeb3Signature", sig);
           } catch (err) {
             console.warn("[Web3Bridge] Injected sign error:", err);
-            SendMessage(gameObjectName, "OnWeb3Error", err.message || "Sign error");
+            SendMessage(gameObjectName, "OnWeb3Error", err && err.message ? err.message : "Sign error");
           }
           return;
         }
@@ -5200,11 +5248,56 @@ var ASM_CONSTS = {
         }
   
         try {
-          const accounts = await g.CarditoWC.request({
-            method: "eth_accounts"
-          });
+          // اول از session v2 بخوان
+          let from = null;
+          let fromSession = false;
   
-          if (!accounts || !accounts.length) {
+          try {
+            const sess =
+              g.CarditoWC.session ||
+              (g.CarditoWC._client && g.CarditoWC._client.session) ||
+              null;
+  
+            const ns = sess && sess.namespaces
+              ? (sess.namespaces.eip155 || sess.namespaces["eip155"])
+              : null;
+  
+            const accountsNS = ns && Array.isArray(ns.accounts) ? ns.accounts : null;
+  
+            if (accountsNS && accountsNS.length > 0) {
+              const full = String(accountsNS[0]); // eip155:1:0xabc...
+              const parts = full.split(":");
+              if (parts.length >= 3) {
+                from = parts[2];
+                fromSession = true;
+              }
+            }
+          } catch (e) {
+            console.warn("[Web3Bridge] WC session parse error (sign):", e);
+          }
+  
+          // اگر از session نگرفت، fallback به eth_accounts
+          if (!from) {
+            try {
+              const accounts = await g.CarditoWC.request({
+                method: "eth_accounts"
+              });
+              if (accounts && accounts.length > 0) {
+                from = accounts[0];
+              } else {
+                console.warn("[Web3Bridge] WC sign: eth_accounts returned empty", { accounts });
+              }
+            } catch (e) {
+              console.warn("[Web3Bridge] WC eth_accounts error (sign):", e);
+            }
+          }
+  
+          // آخرین fallback: UnityActiveWallet اگر ست شده
+          if (!from && typeof window !== "undefined" && window.UnityActiveWallet) {
+            from = window.UnityActiveWallet;
+          }
+  
+          if (!from) {
             let wcSession = null;
             try {
               if (g.CarditoWC) {
@@ -5217,8 +5310,8 @@ var ASM_CONSTS = {
               wcSession = "session-read-error: " + (e && e.message ? e.message : String(e));
             }
   
-            console.warn("[Web3Bridge] WC sign: no accounts", {
-              accounts,
+            console.warn("[Web3Bridge] WC sign: no accounts (final)", {
+              fromSession,
               hasWC: !!g.CarditoWC,
               wcSession: wcSession,
               unityChain: (typeof window !== "undefined" ? window.UnitySelectedChain : null)
@@ -5227,14 +5320,12 @@ var ASM_CONSTS = {
             return;
           }
           
-          const cid = window.UnitySelectedChain || 1;
-          const from = accounts[0];
           const sig = await g.CarditoWC.request({
             method: "personal_sign",
             params: [message, from],
           });
   
-          console.log("[Web3Bridge] WC signature:", sig);
+          console.log("[Web3Bridge] WC signature:", sig, { from, fromSession });
           SendMessage(gameObjectName, "OnWeb3Signature", sig);
   
           // 🔥 redirect AFTER signature delivery
@@ -5244,7 +5335,7 @@ var ASM_CONSTS = {
           
         } catch (err) {
           console.error("[Web3Bridge] WC Sign error:", err);
-          SendMessage(gameObjectName, "OnWeb3Error", err.message || "WC sign error");
+          SendMessage(gameObjectName, "OnWeb3Error", err && err.message ? err.message : "WC sign error");
         }
       })();
     }
