@@ -5328,11 +5328,6 @@ var ASM_CONSTS = {
           console.log("[Web3Bridge] WC signature:", sig, { from, fromSession });
           SendMessage(gameObjectName, "OnWeb3Signature", sig);
   
-          // 🔥 redirect AFTER signature delivery
-          setTimeout(() => {
-              window.location.href = window.location.origin + "/?signed=1";
-          }, 300);
-          
         } catch (err) {
           console.error("[Web3Bridge] WC Sign error:", err);
           SendMessage(gameObjectName, "OnWeb3Error", err && err.message ? err.message : "WC sign error");
