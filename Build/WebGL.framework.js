@@ -2086,13 +2086,13 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  4826544: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
- 4826605: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
- 4826669: function() {return Module.webglContextAttributes.powerPreference;},  
- 4826727: function() {Module['emscripten_get_now_backup'] = performance.now;},  
- 4826782: function($0) {performance.now = function() { return $0; };},  
- 4826830: function($0) {performance.now = function() { return $0; };},  
- 4826878: function() {performance.now = Module['emscripten_get_now_backup'];}
+  4826656: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
+ 4826717: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
+ 4826781: function() {return Module.webglContextAttributes.powerPreference;},  
+ 4826839: function() {Module['emscripten_get_now_backup'] = performance.now;},  
+ 4826894: function($0) {performance.now = function() { return $0; };},  
+ 4826942: function($0) {performance.now = function() { return $0; };},  
+ 4826990: function() {performance.now = Module['emscripten_get_now_backup'];}
 };
 
 
@@ -5205,7 +5205,24 @@ var ASM_CONSTS = {
           });
   
           if (!accounts || !accounts.length) {
-            console.warn("[Web3Bridge] WC sign: no accounts");
+            let wcSession = null;
+            try {
+              if (g.CarditoWC) {
+                wcSession =
+                  g.CarditoWC.session ||
+                  (g.CarditoWC._client && g.CarditoWC._client.session) ||
+                  null;
+              }
+            } catch (e) {
+              wcSession = "session-read-error: " + (e && e.message ? e.message : String(e));
+            }
+  
+            console.warn("[Web3Bridge] WC sign: no accounts", {
+              accounts,
+              hasWC: !!g.CarditoWC,
+              wcSession: wcSession,
+              unityChain: (typeof window !== "undefined" ? window.UnitySelectedChain : null)
+            });
             SendMessage(gameObjectName, "OnWeb3Error", "No wallet account");
             return;
           }

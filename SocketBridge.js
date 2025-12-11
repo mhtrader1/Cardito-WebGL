@@ -103,7 +103,8 @@ window.Web3_GetAddress = async function (gameObjectName) {
     const address = accounts[0];
 
     console.log("[Web3Bridge] ✅ Address:", address);
-
+    window.SetUnityActiveWallet(address);
+    
     // ➜ کال‌بک درست: RegisterManager.OnWeb3Address
     if (typeof sendMessage === "function") {
       sendMessage(gameObjectName, "OnWeb3Address", address);
@@ -124,8 +125,7 @@ window.Web3_SignMessage = async function (gameObjectName, msg) {
     const provider = await getEip1193Provider();
 
     // 1) آدرس فعال را از همان provider بگیر (MetaMask یا WalletConnect)
-    const accounts = await provider.request({ method: "eth_requestAccounts" });
-    const from = accounts[0];
+    const from = window.UnityActiveWallet;
     
     // 2) امضا با همان provider (نه فقط window.ethereum)
     const signature = await provider.request({
@@ -202,6 +202,19 @@ async function getEip1193Provider(chainId) {
   }
   return wc;
 }
+
+window.Web3Bridge.ResetWalletConnect = async function() {
+    try {
+        if (window._wcProvider?.disconnect) {
+            console.log("[Web3Bridge] WC disconnecting...");
+            await window._wcProvider.disconnect();
+        }
+    } catch (e) {
+        console.warn("[Web3Bridge] WC disconnect error:", e);
+    }
+    window._wcProvider = null;
+    console.log("[Web3Bridge] WC reset complete");
+};
 
 // ---------- PayStable ----------
 window.Web3Bridge.PayStable = async function (sku, amount, tokenSymbol, chainId) {
