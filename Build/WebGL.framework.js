@@ -2086,13 +2086,13 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  4826656: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
- 4826717: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
- 4826781: function() {return Module.webglContextAttributes.powerPreference;},  
- 4826839: function() {Module['emscripten_get_now_backup'] = performance.now;},  
- 4826894: function($0) {performance.now = function() { return $0; };},  
- 4826942: function($0) {performance.now = function() { return $0; };},  
- 4826990: function() {performance.now = Module['emscripten_get_now_backup'];}
+  4827088: function() {return Module.webglContextAttributes.premultipliedAlpha;},  
+ 4827149: function() {return Module.webglContextAttributes.preserveDrawingBuffer;},  
+ 4827213: function() {return Module.webglContextAttributes.powerPreference;},  
+ 4827271: function() {Module['emscripten_get_now_backup'] = performance.now;},  
+ 4827326: function($0) {performance.now = function() { return $0; };},  
+ 4827374: function($0) {performance.now = function() { return $0; };},  
+ 4827422: function() {performance.now = Module['emscripten_get_now_backup'];}
 };
 
 
@@ -5197,6 +5197,16 @@ var ASM_CONSTS = {
       }
   
       console.error("[Web3Bridge] PayStable not found on window.Web3Bridge");
+    }
+
+  function _Web3_SetExpectedWallet(addrPtr) {
+      try {
+        const addr = (addrPtr ? UTF8ToString(addrPtr) : "") || "";
+        window.CarditoExpectedWallet = addr.toLowerCase();
+        console.log("[Web3Bridge] Expected wallet set:", window.CarditoExpectedWallet);
+      } catch (e) {
+        console.warn("[Web3Bridge] Web3_SetExpectedWallet error:", e);
+      }
     }
 
   function _Web3_SignMessage(ptr, msgPtr) {
@@ -16644,6 +16654,7 @@ var asmLibraryArg = {
   "Web3_DisconnectWC": _Web3_DisconnectWC,
   "Web3_GetAddress": _Web3_GetAddress,
   "Web3_PayStable": _Web3_PayStable,
+  "Web3_SetExpectedWallet": _Web3_SetExpectedWallet,
   "Web3_SignMessage": _Web3_SignMessage,
   "__assert_fail": ___assert_fail,
   "__cxa_allocate_exception": ___cxa_allocate_exception,

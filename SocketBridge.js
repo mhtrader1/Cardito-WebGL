@@ -203,17 +203,30 @@ async function getEip1193Provider(chainId) {
   return wc;
 }
 
-window.Web3Bridge.ResetWalletConnect = async function() {
+window.Web3Bridge.ResetWalletConnect = async function () {
     try {
         if (window._wcProvider?.disconnect) {
-            console.log("[Web3Bridge] WC disconnecting...");
+            console.log("[WC] disconnecting old provider");
             await window._wcProvider.disconnect();
         }
     } catch (e) {
-        console.warn("[Web3Bridge] WC disconnect error:", e);
+        console.warn("[WC] disconnect error:", e);
     }
+
+    // 🔥 پاکسازی کامل تمام سشن‌های WC از localStorage
+    try {
+        Object.keys(localStorage).forEach(k => {
+            if (k.startsWith("wc@2:")) {
+                console.log("[WC] removing key:", k);
+                localStorage.removeItem(k);
+            }
+        });
+    } catch (e) {
+        console.warn("[WC] localStorage cleanup error:", e);
+    }
+
     window._wcProvider = null;
-    console.log("[Web3Bridge] WC reset complete");
+    console.log("[WC] full reset complete");
 };
 
 // ---------- PayStable ----------
@@ -259,6 +272,15 @@ window.Web3Bridge.PayStable = async function (sku, amount, tokenSymbol, chainId)
     const provider = new eth.providers.Web3Provider(providerRaw);
     const signer = provider.getSigner();
     const wallet = (await signer.getAddress()).toLowerCase();
+
+    const expected = (window.CarditoExpectedWallet || "").toLowerCase();
+    if (expected && wallet && expected !== wallet) {
+      console.warn("[PayStable] WALLET MISMATCH", { expected, wallet });
+      sendMessage("StoreManager", "ShowStoreError",
+        "Wrong wallet selected in your wallet app.\n\nSwitch to your Cardito registered wallet and try again."
+      );
+      return;
+    }
 
     const payCfg = await loadPaymentConfig();
     const mapping = payCfg.tokens[String(cid)];
