@@ -1,54 +1,512 @@
 <!DOCTYPE html>
 <html lang="en-us">
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity WebGL Player | Cardito Web</title>
-    <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link rel="stylesheet" href="TemplateData/style.css">
+       <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Cardito - Play to earn</title>
+    <link rel="shortcut icon" href="favicon.png">
+
+    <script>
+    (function () {
+      const ua = navigator.userAgent.toLowerCase();
+      const isTelegram = ua.includes("telegram");
+
+      if (!isTelegram) return;
+
+      const url = window.location.href;
+
+      // Android browsers
+      const chrome = "googlechrome://navigate?url=" + encodeURIComponent(url);
+      const samsung = "samsunginternet://navigate?url=" + encodeURIComponent(url);
+
+      // iOS (Safari will be default)
+      const fallback = url;
+
+      // Try Chrome first
+      window.location.href = chrome;
+
+      // Then Samsung Internet
+      setTimeout(() => {
+        window.location.href = samsung;
+      }, 300);
+
+      // Final fallback
+      setTimeout(() => {
+        window.location.href = fallback;
+      }, 600);
+    })();
+    </script>
+
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #000;
+        height: 100%;
+      }
+
+      #unity-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #unity-canvas {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(var(--scale, 1));
+        transform-origin: center center;
+        width: 1080px;
+        height: 1920px;
+        background: #000;
+        touch-action: manipulation;
+        -webkit-user-select: none;
+        user-select: none;
+        z-index: 1;
+      }
+    </style>
+
+    <!-- =========== Buiding DeviceId ===========-->
+    <script>
+    (function() {
+      function generateDeviceId() {
+        const key = "cardito_device_id";
+        let id = localStorage.getItem(key);
+        if (!id) {
+          const rand = crypto.getRandomValues(new Uint8Array(16));
+          id = Array.from(rand).map(x => x.toString(16).padStart(2, "0")).join("");
+          localStorage.setItem(key, id);
+        }
+        return id;
+      }
+
+      window.CARDITO_DEVICE_ID = generateDeviceId();
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = urlParams.get("ref");
+
+      if (ref) {
+        localStorage.setItem("cardito_referral_code", ref);
+      }
+
+      window.CARDITO_REF_CODE = ref || null;
+    })();
+    </script>
+
+    <!-- ======================================================
+         🔌 Web3 prerequisites
+         ====================================================== -->
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="ethers.js"></script>
+    <!--<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>-->
+    <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.23.0/dist/index.umd.js"></script>
+
+    <script>
+      window.CARDITO_WC_PROJECT_ID = "7a03ac67d724cd7a88e72da1ec30c7f6";
+    </script>
+
+    <script src="SocketBridge.js"></script>
+
+    <script>
+    function CarditoCopyToClipboard(text) {
+        try {
+            navigator.clipboard.writeText(text).then(() => {
+                console.log("Copied from JS:", text);
+            }).catch(err => {
+                console.log("Copy failed:", err);
+            });
+        } catch(e) {
+            console.log("Copy exception:", e);
+        }
+    }
+    </script>
+
+    <!-- ===== HTML Keyboard Overlay for mobile WebGL ===== -->
+    <input id="cardito-html-input"
+           type="text"
+           style="
+             position:fixed;
+             left:50%;
+             bottom:20px;
+             transform:translateX(-50%);
+             width:80%;
+             max-width:400px;
+             height:40px;
+             padding:8px 10px;
+             font-size:16px;
+             border-radius:8px;
+             border:1px solid #ccc;
+             z-index:999999;
+             display:none;
+             background:#fff;
+             color:#000;
+           "
+           autocomplete="off"
+           autocorrect="off"
+           autocapitalize="off"
+           spellcheck="false" />
+
+    <script>
+      (function () {
+        const el = document.getElementById("cardito-html-input");
+
+        const overlay = {
+          go: null,
+          method: null,
+
+          open(goName, methodName, placeholder, currentValue) {
+            this.go = goName;
+            this.method = methodName;
+            el.placeholder = placeholder || "";
+            el.value = currentValue || "";
+            el.style.display = "block";
+
+            // کمی تأخیر برای اینکه موبایل مطمئناً کیبورد را باز کند
+            setTimeout(() => {
+              el.focus();
+              el.selectionStart = el.selectionEnd = el.value.length;
+            }, 50);
+          },
+
+          close(sendBack) {
+            el.style.display = "none";
+
+            if (sendBack && this.go && this.method) {
+              const val = el.value || "";
+
+              try {
+                // اول: اگر sendMessage جهانی ست شده باشد (پس از ساخت UnityInstance)
+                if (typeof window.sendMessage === "function") {
+                  window.sendMessage(this.go, this.method, val);
+
+                // دوم: اگر خود unityInstance در دسترس باشد
+                } else if (typeof window.unityInstance !== "undefined" && window.unityInstance) {
+                  window.unityInstance.SendMessage(this.go, this.method, val);
+
+                // سوم: fallback قدیمی WebGL
+                } else if (typeof window.SendMessage === "function") {
+                  window.SendMessage(this.go, this.method, val);
+                } else {
+                  console.warn("[HTMLKeyboardOverlay] No bridge ready → input queued");
+                  setTimeout(() => {
+                    if (typeof window.sendMessage === "function")
+                      window.sendMessage(this.go, this.method, val);
+                    else if (window.unityInstance)
+                      window.unityInstance.SendMessage(this.go, this.method, val);
+                  }, 300);
+                }
+
+                } catch (e) {
+                console.error("[HTMLKeyboardOverlay] SendMessage error", e);
+              }
+            }
+
+            this.go = null;
+            this.method = null;
+          }
+        };
+
+        el.addEventListener("blur", () => overlay.close(false));
+
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            overlay.close(true);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            overlay.close(false);
+          }
+        });
+
+        // این آبجکت همان چیزی است که از C# با Application.ExternalCall صدا زده می‌شود
+        window.HTMLKeyboardOverlay = overlay;
+      })();
+    </script>
   </head>
   <body>
+
+  <!-- ================================
+   ⭐ Cardito Cinematic Loader (GSAP)
+  ================================= -->
+  <style>
+    #cardito-loader {
+      position: fixed;
+      inset: 0;
+      background: white;
+      z-index: 999999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      flex-direction: column; /* NEW → اجازه می‌دهد متن زیر لوگو قرار بگیرد */
+    }
+
+    .letter {
+      position: absolute;
+      bottom: calc(50% - 7vh);
+      opacity: 0;
+      left: 50%;
+      transform: none;
+      width: auto;
+      height: auto;
+    }
+
+    #cardito-heart {
+      position: absolute;
+      bottom: calc(50% - 5vh);
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      width: auto;
+      pointer-events: none;
+    }
+
+    /* ⭐ NEW → متن لودینگ */
+    #loader-text {
+      position: absolute;
+      bottom: calc(50% - 15vh);
+      font-family: sans-serif;
+      font-size: 2vh;
+      color: #444;
+      opacity: 0;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    @media (min-width: 601px) and (max-width: 1024px) {
+      .letter {
+        height: 15vh;   /* کوچکتر از موبایل، اما تناسب کل لوگو حفظ می‌شود */
+      }
+      #cardito-heart {
+        height: 6vh; /* هماهنگ با حروف */
+      }
+    }
+
+    @media (max-width: 600px) {
+      .letter {
+        height: 12vh;
+        width: auto;
+      }
+      #cardito-heart {
+        height: 4vh;
+        width: auto;
+      }
+      #loader-text {
+        font-size: 2.2vh;
+        bottom: 14vh;
+      }
+    }
+  </style>
+
+  <div id="cardito-loader">
+    <img class="letter" id="L1" src="1.png">
+    <img class="letter" id="L2" src="2.png">
+    <img class="letter" id="L3" src="3.png">
+    <img class="letter" id="L4" src="4.png">
+    <img class="letter" id="L5" src="5.png">
+    <img class="letter" id="L6" src="6.png">
+    <img class="letter" id="L7" src="7.png">
+    <img id="cardito-heart" src="heart.png">
+
+    <!-- ⭐ NEW: متن لودینگ -->
+    <div id="loader-text">Loading… 0%<br>Get ready to play!</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+  <script>
+    window.CARDITO_ANIM_DONE = false;
+    window.UnityLoadProgress = window.UnityLoadProgress || 0;
+
+    const CARDITO_LETTER_IDS = ["L1","L2","L3","L4","L5","L6","L7"];
+    let HEART_BEATS = 0;
+
+    const vw = Math.max(document.documentElement.clientWidth, window.innerWidth);
+    const vh = Math.max(document.documentElement.clientHeight, window.innerHeight);
+
+    /* ⭐ NEW: آپدیت درصد */
+    setInterval(() => {
+      const t = document.getElementById("loader-text");
+      if (!t) return;
+      const p = Math.floor((window.UnityLoadProgress || 0) * 100);
+      t.innerHTML = `Loading… ${p}%<br>Get ready to play!`;
+    }, 100);
+
+    function tryStartUnityReveal() {
+      const loader = document.getElementById("cardito-loader");
+      if (!loader || !window.gsap) return;
+
+      const ready = (window.UnityLoadProgress || 0) >= 0.9;
+      if (ready && window.CARDITO_ANIM_DONE && HEART_BEATS >= 5) {
+        setTimeout(() => {
+          gsap.to(loader, {
+            opacity: 0,
+            duration: 0.7,
+            onComplete: () => (loader.style.display = "none")
+          });
+        }, 500);
+      }
+    }
+
+    function initCarditoLoader() {
+      const loader = document.getElementById("cardito-loader");
+      const letters = CARDITO_LETTER_IDS.map(id => document.getElementById(id));
+      const heart = document.getElementById("cardito-heart");
+      const text = document.getElementById("loader-text");
+
+      if (!loader || !letters.every(Boolean) || !heart) {
+        window.CARDITO_ANIM_DONE = true;
+        tryStartUnityReveal();
+        return;
+      }
+
+      requestAnimationFrame(async () => {
+
+        /* اندازه واقعی همه PNG ها */
+        const realWidths = [];
+        for (let el of letters) {
+          try { if (el.decode) await el.decode(); } catch {}
+          realWidths.push(el.getBoundingClientRect().width);
+        }
+
+        /* محاسبه چیدمان */
+        const total = realWidths.reduce((a,b)=>a+b,0);
+        const startX = -total/2;
+        const positions = {};
+        let cursor = startX;
+
+        for (let i=0;i<letters.length;i++) {
+          const w = realWidths[i];
+          positions[CARDITO_LETTER_IDS[i]] = cursor + w/2;
+          cursor += w;
+        }
+
+        const dropYStart = -vh*0.5;
+        const dropYEnd = 0;
+
+        /* جایگذاری اولیه */
+        letters.forEach((el, idx) => {
+          gsap.set(el, {
+            x: positions[CARDITO_LETTER_IDS[idx]] - realWidths[idx]/2,
+            y: dropYStart,
+            opacity: 0
+          });
+        });
+
+        gsap.set(heart, { opacity: 0, scale: 0.8 });
+
+        /* ⭐ NEW: ظاهر شدن متن */
+        gsap.set(text, { opacity: 0 });
+        
+        const tl = gsap.timeline({ defaults:{ duration:1.4, ease:"power2.out" } });
+
+        tl.to(letters, { y: dropYEnd, opacity:1, stagger:0.15 }, 0)
+          .to(text, { opacity:1, duration:1.0 }, "-=0.5") /* نمایش متن */
+          .to({}, { duration:1 })
+          .add(() => {
+            const iEl = document.getElementById("L5");
+            const iRect = iEl.getBoundingClientRect();
+            const loaderRect = loader.getBoundingClientRect();
+
+            const offsetX =
+              (iRect.left + iRect.width/2) -
+              (loaderRect.left + loaderRect.width/2);
+
+            const finalY =
+              (iRect.top - loaderRect.height/2) - 25;
+
+            gsap.set(heart, { x: offsetX, y: finalY });
+          })
+          .to(heart, { opacity:1, scale:1, duration:0.5 })
+          .call(() => {
+            window.CARDITO_ANIM_DONE = true;
+
+            gsap.to("#cardito-heart", {
+              scale:1.12,
+              duration:0.5,
+              yoyo:true,
+              repeat:-1,
+              onRepeat:() => {
+                HEART_BEATS++;
+                tryStartUnityReveal();
+              }
+            });
+          });
+      });
+    }
+
+    window.addEventListener("load", () => {
+      const imgs = CARDITO_LETTER_IDS.map(id => document.getElementById(id));
+      const heart = document.getElementById("cardito-heart");
+      const all = [...imgs, heart];
+
+      let remaining = all.length;
+      const done = () => (--remaining <= 0 && initCarditoLoader());
+
+      all.forEach(img => {
+        img.complete ? done() :
+          img.addEventListener("load", done, { once:true });
+      });
+    });
+  </script>
+
+
+    <!-- ================================
+         ⭐ Original Unity Loader
+         ================================= -->
     <div id="unity-container" class="unity-desktop">
-      <canvas id="unity-canvas" width=1080 height=1920 tabindex="-1"></canvas>
+      <canvas id="unity-canvas" width="1080" height="1920" tabindex="0"></canvas>
+
       <div id="unity-loading-bar">
         <div id="unity-logo"></div>
         <div id="unity-progress-bar-empty">
           <div id="unity-progress-bar-full"></div>
         </div>
       </div>
-      <div id="unity-warning"> </div>
+
+      <div id="unity-warning"></div>
       <div id="unity-footer">
         <div id="unity-webgl-logo"></div>
         <div id="unity-fullscreen-button"></div>
         <div id="unity-build-title">Cardito Web</div>
       </div>
     </div>
-    <script>
 
+    <script>
       var container = document.querySelector("#unity-container");
       var canvas = document.querySelector("#unity-canvas");
+      canvas.tabIndex = 0;
+      canvas.style.outline = "none";
       var loadingBar = document.querySelector("#unity-loading-bar");
       var progressBarFull = document.querySelector("#unity-progress-bar-full");
       var fullscreenButton = document.querySelector("#unity-fullscreen-button");
       var warningBanner = document.querySelector("#unity-warning");
 
-      // Shows a temporary message banner/ribbon for a few seconds, or
-      // a permanent error message on top of the canvas if type=='error'.
-      // If type=='warning', a yellow highlight color is used.
-      // Modify or remove this function to customize the visually presented
-      // way that non-critical warnings and error messages are presented to the
-      // user.
+      window.UnitySelectedChain = 1; // default Ethereum
+      window.SetUnitySelectedChain = function(cid){
+        console.log("[HTML] Unity selected chain =", cid);
+        window.UnitySelectedChain = parseInt(cid);
+      };
+
       function unityShowBanner(msg, type) {
         function updateBannerVisibility() {
-          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+          warningBanner.style.display = warningBanner.children.length ? "block" : "none";
         }
-        var div = document.createElement('div');
-        div.innerHTML = msg;
+        var div = document.createElement("div");
+        div.textContent = msg;
         warningBanner.appendChild(div);
-        if (type == 'error') div.style = 'background: red; padding: 10px;';
+
+        if (type == "error") div.style = "background: red; padding: 10px;";
         else {
-          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
-          setTimeout(function() {
+          if (type == "warning") div.style = "background: yellow; padding: 10px;";
+          setTimeout(() => {
             warningBanner.removeChild(div);
             updateBannerVisibility();
           }, 5000);
@@ -59,9 +517,9 @@
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/b23dd96997961653e2825455633aac82.loader.js";
       var config = {
-        dataUrl: buildUrl + "/c65f60f351c03e92a8c4806d24b30cc6.data.unityweb",
-        frameworkUrl: buildUrl + "/a4518eaabfb576c96e8c58f3d632a2c4.framework.js.unityweb",
-        codeUrl: buildUrl + "/5f38b5f30cc022745198c1541ca8a5c7.wasm.unityweb",
+        dataUrl: buildUrl + "/eee3c781a40c888e111f9c06d8daa78a.data.unityweb",
+        frameworkUrl: buildUrl + "/8cadbe045532618f72411fe714eb97e6.framework.js.unityweb",
+        codeUrl: buildUrl + "/d9738f8ba780f171c9a3a6ef770fff4a.wasm.unityweb",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "Cardito",
         productName: "Cardito Web",
@@ -69,63 +527,106 @@
         showBanner: unityShowBanner,
       };
 
-      // By default, Unity keeps WebGL canvas render target size matched with
-      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
-      // Set this to false if you want to decouple this synchronization from
-      // happening inside the engine, and you would instead like to size up
-      // the canvas DOM size and WebGL render target sizes yourself.
-      // config.matchWebGLToCanvasSize = false;
-
-      // If you would like all file writes inside Unity Application.persistentDataPath
-      // directory to automatically persist so that the contents are remembered when
-      // the user revisits the site the next time, uncomment the following line:
-      // config.autoSyncPersistentDataPath = true;
-      // This autosyncing is currently not the default behavior to avoid regressing
-      // existing user projects that might rely on the earlier manual
-      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
-      // expected to change.
-
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
-
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
+        var meta = document.createElement("meta");
+        meta.name = "viewport";
+        meta.content =
+          "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+        document.head.appendChild(meta);
         container.className = "unity-mobile";
         canvas.className = "unity-mobile";
-
-        // To lower canvas resolution on mobile devices to gain some
-        // performance, uncomment the following line:
-        // config.devicePixelRatio = 1;
-
-
       } else {
-        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
-
         canvas.style.width = "1080px";
         canvas.style.height = "1920px";
       }
 
       loadingBar.style.display = "block";
+      window.UNITY_READY = true;                       // ✅ Unity HTML logo / loading bar is now visible
+      console.log("[HTML] UNITY_READY set → Unity logo is visible");
+
+      function waitForIntro() {
+        return new Promise(resolve => {
+          if (window.CARDITO_ANIM_DONE) return resolve();
+          const interval = setInterval(() => {
+            if (window.CARDITO_ANIM_DONE) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, 100);
+        });
+      }
 
       var script = document.createElement("script");
       script.src = loaderUrl;
+
       script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          progressBarFull.style.width = 100 * progress + "%";
-              }).then((unityInstance) => {
-                loadingBar.style.display = "none";
-                fullscreenButton.onclick = () => {
-                  unityInstance.SetFullscreen(1);
-                };
-              }).catch((message) => {
-                alert(message);
-              });
+        
+        waitForIntro().then(() => {
+          createUnityInstance(canvas, config, (progress) => {
+            // ذخیرهٔ وضعیت لود یونیتی برای لودر
+            window.UnityLoadProgress = progress || 0;
+
+            // اگر بعداً خواستی نوار پیشرفت درست کنی همین خط کار می‌کند
+            progressBarFull.style.width = (progress * 100) + "%";
+
+            // هر بار که progress آپدیت می‌شود، چک کن لودر می‌تواند محو شود یا نه
+            tryStartUnityReveal();
+          }).then((unityInstance) => {
+
+            window.sendMessage = function(obj, method, param) {
+              try { unityInstance.SendMessage(obj, method, param); }
+              catch (e) { console.error("[sendMessage ERROR]", e); }
             };
 
-      document.body.appendChild(script);
+            loadingBar.style.display = "none";
+            fullscreenButton.onclick = () => unityInstance.SetFullscreen(1);
 
+            window.unityInstance = unityInstance;
+
+            window.SendUnityDeviceId = function() {
+                if (unityInstance && unityInstance.SendMessage)
+                    unityInstance.SendMessage("RegisterManager", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
+            };
+
+            window.SendUnityReferral = function() {
+                if (unityInstance && unityInstance.SendMessage)
+                    unityInstance.SendMessage("RegisterManager", "OnReferralCodeFromJS", window.CARDITO_REF_CODE || "");
+            };
+
+          }).catch((msg) => console.error(msg));
+        });
+      };
+
+      document.body.appendChild(script);
     </script>
+
+    <!-- ======================
+         Canvas Fitting Logic
+         ====================== -->
+    <script>
+      function fitCanvas() {
+        const canvas = document.getElementById("unity-canvas");
+        const scaleX = window.innerWidth / 1080;
+        const scaleY = window.innerHeight / 1920;
+        const scale = Math.min(scaleX, scaleY);
+        canvas.style.setProperty("--scale", scale);
+      }
+
+      window.addEventListener("resize", fitCanvas);
+      fitCanvas();
+    </script>
+
+    <script>
+    document.addEventListener("visibilitychange", function () {
+        if (document.hidden) {
+            console.log("[HTML] TAB HIDDEN → send OnAppHidden");
+            window.sendMessage && window.sendMessage("GameManager", "OnAppHidden", "");
+        } else {
+            console.log("[HTML] TAB VISIBLE → send OnAppVisible");
+            window.sendMessage && window.sendMessage("GameManager", "OnAppVisible", "");
+        }
+    });
+    </script>
+    
   </body>
 </html>
