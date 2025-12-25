@@ -40,6 +40,47 @@ async function loadPaymentConfig() {
 }
 
 // ========================================================
+// ❤️ Heartbeat (Mobile-safe)
+// ========================================================
+let HB_LAST_PONG = Date.now();
+let HB_INTERVAL = null;
+const HB_PING_EVERY = 3000;   // 3s
+const HB_TIMEOUT = 8000;      // 8s
+
+function startHeartbeat() {
+  stopHeartbeat();
+
+  HB_LAST_PONG = Date.now();
+
+  HB_INTERVAL = setInterval(() => {
+    if (!window.CarditoSocket || !window.CarditoSocket.connected) return;
+
+    // send ping
+    window.CarditoSocket.emit("pingFromClient", { t: Date.now() });
+
+    // timeout check
+    if (Date.now() - HB_LAST_PONG > HB_TIMEOUT) {
+      console.warn("[SocketBridge] 💔 Heartbeat timeout");
+
+      sendToUnity("pongTimeout", { reason: "heartbeat-timeout" });
+
+      try {
+        window.CarditoSocket.disconnect();
+      } catch (_) {}
+
+      stopHeartbeat();
+    }
+  }, HB_PING_EVERY);
+}
+
+function stopHeartbeat() {
+  if (HB_INTERVAL) {
+    clearInterval(HB_INTERVAL);
+    HB_INTERVAL = null;
+  }
+}
+
+// ========================================================
 // 🧩 Helper - ارسال پیام به یونیتی
 // ========================================================
 function sendToUnity(event, data) {
@@ -54,14 +95,6 @@ function sendToUnity(event, data) {
     console.error("[SocketBridge] ❌ sendToUnity error:", err);
   }
 }
-
-// ========================================================
-// 🌐 اتصال Socket.IO
-// ========================================================
-window.CarditoSocket_Init = function (serverUrl) {
-  console.log("[SocketBridge] Init called (JS); socket is created by .jslib. No-op here.");
-  return;
-};
 
 // ========================================================
 // ✉️ ارسال داده از یونیتی به سرور
@@ -84,12 +117,48 @@ window.CarditoSocket_Emit = function (eventName, jsonData) {
 // 🔚 بستن اتصال
 // ========================================================
 window.CarditoSocket_Close = function () {
+  stopHeartbeat();
   if (window.CarditoSocket) {
     console.log("[SocketBridge] 🔌 Closing connection...");
-    window.CarditoSocket.disconnect();
+    try {
+      window.CarditoSocket.disconnect();
+    } catch (_) {}
     window.CarditoSocket = null;
   }
 };
+
+// ========================================================
+// 🔌 Socket lifecycle hooks
+// ========================================================
+(function hookSocketLifecycle() {
+  const tryHook = () => {
+    if (!window.CarditoSocket) return false;
+
+    window.CarditoSocket.on("connect", () => {
+      console.log("[SocketBridge] ✅ socket connected");
+      startHeartbeat();
+      sendToUnity("socketConnected", {});
+    });
+
+    window.CarditoSocket.on("disconnect", (reason) => {
+      console.warn("[SocketBridge] 🔌 socket disconnected:", reason);
+      stopHeartbeat();
+      sendToUnity("socketDisconnected", { reason });
+    });
+
+    window.CarditoSocket.on("pongFromServer", () => {
+      HB_LAST_PONG = Date.now();
+    });
+
+    return true;
+  };
+
+  // موبایل = socket دیر ساخته می‌شود
+  let tries = 0;
+  const t = setInterval(() => {
+    if (tryHook() || tries++ > 20) clearInterval(t);
+  }, 250);
+})();
 
 // ========================================================
 // 🪙 Web3 برای متامسک (فقط مرورگر)
