@@ -7,37 +7,6 @@
     <title>Cardito - Play to earn</title>
     <link rel="shortcut icon" href="favicon.png">
 
-    <script>
-    (function () {
-      const ua = navigator.userAgent.toLowerCase();
-      const isTelegram = ua.includes("telegram");
-
-      if (!isTelegram) return;
-
-      const url = window.location.href;
-
-      // Android browsers
-      const chrome = "googlechrome://navigate?url=" + encodeURIComponent(url);
-      const samsung = "samsunginternet://navigate?url=" + encodeURIComponent(url);
-
-      // iOS (Safari will be default)
-      const fallback = url;
-
-      // Try Chrome first
-      window.location.href = chrome;
-
-      // Then Samsung Internet
-      setTimeout(() => {
-        window.location.href = samsung;
-      }, 300);
-
-      // Final fallback
-      setTimeout(() => {
-        window.location.href = fallback;
-      }, 600);
-    })();
-    </script>
-
     <style>
       html, body {
         margin: 0;
@@ -113,6 +82,37 @@
     </script>
 
     <script src="SocketBridge.js"></script>
+
+    <!-- ✅ Telegram Mini App initData bridge (called from C# via Application.ExternalCall) -->
+    <script>
+      window.TelegramBridge = window.TelegramBridge || {};
+      window.TelegramBridge.SendUnityInitData = function(goName, methodName) {
+        try {
+          const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+          const initData = tg && typeof tg.initData === "string" ? tg.initData : "";
+
+          if (tg && typeof tg.ready === "function") tg.ready();
+
+          if (typeof window.sendMessage === "function") {
+            window.sendMessage(goName, methodName, initData);
+          } else if (window.unityInstance && window.unityInstance.SendMessage) {
+            window.unityInstance.SendMessage(goName, methodName, initData);
+          } else {
+            setTimeout(() => {
+              if (typeof window.sendMessage === "function")
+                window.sendMessage(goName, methodName, initData);
+              else if (window.unityInstance && window.unityInstance.SendMessage)
+                window.unityInstance.SendMessage(goName, methodName, initData);
+            }, 300);
+          }
+        } catch (e) {
+          try {
+            if (typeof window.sendMessage === "function") window.sendMessage(goName, methodName, "");
+            else if (window.unityInstance && window.unityInstance.SendMessage) window.unityInstance.SendMessage(goName, methodName, "");
+          } catch {}
+        }
+      };
+    </script>
 
     <script>
     function CarditoCopyToClipboard(text) {
@@ -517,9 +517,9 @@
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/b23dd96997961653e2825455633aac82.loader.js";
       var config = {
-        dataUrl: buildUrl + "/57fc341b255950716a6523a420661ab7.data.unityweb",
-        frameworkUrl: buildUrl + "/9107adc097b39a54e5e40d9068bf7cfb.framework.js.unityweb",
-        codeUrl: buildUrl + "/d52bbb341bfb6261d79e932d612fcb98.wasm.unityweb",
+        dataUrl: buildUrl + "/6c88d7d3f6755fc2a95a877632be5db6.data.unityweb",
+        frameworkUrl: buildUrl + "/abe11e67f5ece7b1c730e9557302f76b.framework.js.unityweb",
+        codeUrl: buildUrl + "/6888544c6d4703cc33fa32043afb3365.wasm.unityweb",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "Cardito",
         productName: "Cardito Web",
