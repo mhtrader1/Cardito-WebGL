@@ -83,40 +83,52 @@
 
     <script src="SocketBridge.js"></script>
 
-    <!-- ✅ Telegram Mini App initData bridge (called from C# via Application.ExternalCall) -->
+    <!-- ✅ Telegram official WebApp SDK (reliable initData/WebApp object) -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- ✅ Capture Telegram initData ASAP (before Unity) -->
     <script>
-      window.TelegramBridge = window.TelegramBridge || {};
-      window.TelegramBridge.SendUnityInitData = function(goName, methodName) {
+      (function () {
         try {
           const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-          if (!tg) {
-            setTimeout(() => {
-              window.TelegramBridge.SendUnityInitData(goName, methodName);
-            }, 100);
-            return;
-          }
-          const initData = tg && typeof tg.initData === "string" ? tg.initData : "";
-
           if (tg && typeof tg.ready === "function") tg.ready();
 
-          if (typeof window.sendMessage === "function") {
-            window.sendMessage(goName, methodName, initData);
-          } else if (window.unityInstance && window.unityInstance.SendMessage) {
-            window.unityInstance.SendMessage(goName, methodName, initData);
-          } else {
-            setTimeout(() => {
-              if (typeof window.sendMessage === "function")
-                window.sendMessage(goName, methodName, initData);
-              else if (window.unityInstance && window.unityInstance.SendMessage)
-                window.unityInstance.SendMessage(goName, methodName, initData);
-            }, 300);
-          }
+          // ⚠️ IMPORTANT: raw initData, do not touch
+          window.CARDITO_TG_INITDATA =
+            (tg && typeof tg.initData === "string") ? tg.initData : "";
+
+          window.CARDITO_TG_IS_MINIAPP = !!window.CARDITO_TG_INITDATA;
         } catch (e) {
-          try {
-            if (typeof window.sendMessage === "function") window.sendMessage(goName, methodName, "");
-            else if (window.unityInstance && window.unityInstance.SendMessage) window.unityInstance.SendMessage(goName, methodName, "");
-          } catch {}
+          window.CARDITO_TG_INITDATA = "";
+          window.CARDITO_TG_IS_MINIAPP = false;
         }
+      })();
+    </script>
+
+    <!-- ✅ Telegram Mini App initData bridge (Unity will call this) -->
+    <script>
+      window.TelegramBridge = window.TelegramBridge || {};
+
+      window.TelegramBridge.SendUnityInitData = function(goName, methodName) {
+        const initData = window.CARDITO_TG_INITDATA || "";
+
+        let tries = 0;
+        const timer = setInterval(() => {
+          tries++;
+          try {
+            if (typeof window.sendMessage === "function") {
+              window.sendMessage(goName, methodName, initData);
+              clearInterval(timer);
+              return;
+            }
+            if (window.unityInstance && window.unityInstance.SendMessage) {
+              window.unityInstance.SendMessage(goName, methodName, initData);
+              clearInterval(timer);
+              return;
+            }
+          } catch (e) {}
+          if (tries >= 20) clearInterval(timer);
+        }, 100);
       };
     </script>
 
@@ -523,9 +535,9 @@
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/b23dd96997961653e2825455633aac82.loader.js";
       var config = {
-        dataUrl: buildUrl + "/6afc16b691b546bda49cd3b964fda0ba.data.unityweb",
-        frameworkUrl: buildUrl + "/358c4ceecc8de7265d40750a612a6843.framework.js.unityweb",
-        codeUrl: buildUrl + "/77e9a897a1adda4841e9c2fd2a563e6d.wasm.unityweb",
+        dataUrl: buildUrl + "/1c04886994a70608a116becf33d1dd0c.data.unityweb",
+        frameworkUrl: buildUrl + "/439f2d26b170e2d9d35e25e5019d1c0c.framework.js.unityweb",
+        codeUrl: buildUrl + "/caac2f411792f20772c1c093eb602f0e.wasm.unityweb",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "Cardito",
         productName: "Cardito Web",
