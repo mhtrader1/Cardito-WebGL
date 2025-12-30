@@ -133,6 +133,41 @@
     </script>
 
     <script>
+      window.CarditoTelegram = {
+        copy: function (text) {
+          try {
+            const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+            if (tg && tg.platform !== "unknown") {
+              tg.clipboard.writeText(text);
+              tg.HapticFeedback?.impactOccurred("light");
+              return;
+            }
+          } catch (e) {}
+
+          // fallback
+          try {
+            navigator.clipboard.writeText(text);
+          } catch (e) {}
+        },
+
+        share: function (text, url) {
+          try {
+            const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+            if (tg && typeof tg.openTelegramLink === "function") {
+              tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`);
+              return;
+            }
+          } catch (e) {}
+
+          // fallback
+          try {
+            window.open(url, "_blank");
+          } catch (e) {}
+        }
+      };
+    </script>
+
+    <script>
     function CarditoCopyToClipboard(text) {
         try {
             navigator.clipboard.writeText(text).then(() => {
@@ -535,9 +570,9 @@
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/b23dd96997961653e2825455633aac82.loader.js";
       var config = {
-        dataUrl: buildUrl + "/1c04886994a70608a116becf33d1dd0c.data.unityweb",
-        frameworkUrl: buildUrl + "/439f2d26b170e2d9d35e25e5019d1c0c.framework.js.unityweb",
-        codeUrl: buildUrl + "/caac2f411792f20772c1c093eb602f0e.wasm.unityweb",
+        dataUrl: buildUrl + "/ec722e68a3c80bfa5d1832b66e45e304.data.unityweb",
+        frameworkUrl: buildUrl + "/bf2af65fba20b43316eb73edb08e08d1.framework.js.unityweb",
+        codeUrl: buildUrl + "/670306c8473bc0d8025f621d7c5c564d.wasm.unityweb",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "Cardito",
         productName: "Cardito Web",
