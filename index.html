@@ -655,15 +655,29 @@
             window.unityInstance = unityInstance;
 
             window.SendUnityDeviceId = function() {
-                if (unityInstance && unityInstance.SendMessage)
-                    unityInstance.SendMessage("RegisterManager", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
+                if (!unityInstance || !unityInstance.SendMessage) return;
+                unityInstance.SendMessage("RegisterManager", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
+                unityInstance.SendMessage("SplashController", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
             };
             
             window.SendUnityReferral = function() {
               const ref = window.CARDITO_REF_CODE || localStorage.getItem("cardito_referral_code") || "";
-              if (!unityInstance || !unityInstance.SendMessage) return;
-              unityInstance.SendMessage("RegisterManager", "OnReferralCodeFromJS", ref);
-              unityInstance.SendMessage("SplashController", "OnReferralCodeFromJS", ref);
+              let tries = 0;
+
+              const timer = setInterval(() => {
+                tries++;
+
+                try {
+                  if (unityInstance && unityInstance.SendMessage) {
+                    unityInstance.SendMessage("RegisterManager", "OnReferralCodeFromJS", ref);
+                    unityInstance.SendMessage("SplashController", "OnReferralCodeFromJS", ref);
+                    clearInterval(timer);
+                    return;
+                  }
+                } catch (e) {}
+
+                if (tries >= 30) clearInterval(timer); // ~3s
+              }, 100);
             };
 
           }).catch((msg) => console.error(msg));
