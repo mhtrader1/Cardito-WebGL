@@ -98,9 +98,21 @@
             (tg && typeof tg.initData === "string") ? tg.initData : "";
 
           window.CARDITO_TG_IS_MINIAPP = !!window.CARDITO_TG_INITDATA;
+          // ✅ extract referral from Telegram start_param
+          let tgRef = null;
+          if (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) {
+            tgRef = String(tg.initDataUnsafe.start_param).trim().toUpperCase();
+          }
+          if (tgRef) {
+            localStorage.setItem("cardito_referral_code", tgRef);
+            window.CARDITO_REF_CODE = tgRef;
+          } else {
+            window.CARDITO_REF_CODE = null;
+          }
         } catch (e) {
           window.CARDITO_TG_INITDATA = "";
           window.CARDITO_TG_IS_MINIAPP = false;
+          window.CARDITO_REF_CODE = null;
         }
       })();
     </script>
@@ -134,6 +146,12 @@
 
     <script>
       window.CarditoTelegram = {
+        openInvoice: function (link) {
+          if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.openInvoice(link);
+          }
+        },
+        
         copy: function (text) {
           try {
             const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
@@ -570,9 +588,9 @@
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/b23dd96997961653e2825455633aac82.loader.js";
       var config = {
-        dataUrl: buildUrl + "/ec722e68a3c80bfa5d1832b66e45e304.data.unityweb",
-        frameworkUrl: buildUrl + "/bf2af65fba20b43316eb73edb08e08d1.framework.js.unityweb",
-        codeUrl: buildUrl + "/670306c8473bc0d8025f621d7c5c564d.wasm.unityweb",
+        dataUrl: buildUrl + "/ff946e5855e50e8d0a97e1ddbe402712.data.unityweb",
+        frameworkUrl: buildUrl + "/aad830fec057467b5c9ecb4de06310fb.framework.js.unityweb",
+        codeUrl: buildUrl + "/ee4c3077e992b246e8a625773c2b7848.wasm.unityweb",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "Cardito",
         productName: "Cardito Web",
@@ -640,10 +658,12 @@
                 if (unityInstance && unityInstance.SendMessage)
                     unityInstance.SendMessage("RegisterManager", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
             };
-
+            
             window.SendUnityReferral = function() {
-                if (unityInstance && unityInstance.SendMessage)
-                    unityInstance.SendMessage("RegisterManager", "OnReferralCodeFromJS", window.CARDITO_REF_CODE || "");
+              const ref = window.CARDITO_REF_CODE || localStorage.getItem("cardito_referral_code") || "";
+              if (!unityInstance || !unityInstance.SendMessage) return;
+              unityInstance.SendMessage("RegisterManager", "OnReferralCodeFromJS", ref);
+              unityInstance.SendMessage("SplashController", "OnReferralCodeFromJS", ref);
             };
 
           }).catch((msg) => console.error(msg));
