@@ -58,13 +58,7 @@
       window.CARDITO_DEVICE_ID = generateDeviceId();
 
       const urlParams = new URLSearchParams(window.location.search);
-      const ref = urlParams.get("ref");
-
-      if (ref) {
-        localStorage.setItem("cardito_referral_code", ref);
-      }
-
-      window.CARDITO_REF_CODE = ref || null;
+      window.CARDITO_REF_CODE = urlParams.get("ref") || null;
     })();
     </script>
 
@@ -94,21 +88,9 @@
           if (tg && typeof tg.ready === "function") tg.ready();
 
           // ⚠️ IMPORTANT: raw initData, do not touch
-          window.CARDITO_TG_INITDATA =
-            (tg && typeof tg.initData === "string") ? tg.initData : "";
-
+          window.CARDITO_TG_INITDATA = (tg && typeof tg.initData === "string") ? tg.initData : "";
           window.CARDITO_TG_IS_MINIAPP = !!window.CARDITO_TG_INITDATA;
-          // ✅ extract referral from Telegram start_param
-          let tgRef = null;
-          if (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) {
-            tgRef = String(tg.initDataUnsafe.start_param).trim().toUpperCase();
-          }
-          if (tgRef) {
-            localStorage.setItem("cardito_referral_code", tgRef);
-            window.CARDITO_REF_CODE = tgRef;
-          } else {
-            window.CARDITO_REF_CODE = null;
-          }
+
         } catch (e) {
           window.CARDITO_TG_INITDATA = "";
           window.CARDITO_TG_IS_MINIAPP = false;
@@ -588,9 +570,9 @@
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/b23dd96997961653e2825455633aac82.loader.js";
       var config = {
-        dataUrl: buildUrl + "/c761095f93de4a47380f16d910b5fa7a.data.unityweb",
-        frameworkUrl: buildUrl + "/aad830fec057467b5c9ecb4de06310fb.framework.js.unityweb",
-        codeUrl: buildUrl + "/71c22a056c1a2ff2b4ded9187d0c7243.wasm.unityweb",
+        dataUrl: buildUrl + "/0d7b43ddc375272821a4c9924ebbb5ca.data.unityweb",
+        frameworkUrl: buildUrl + "/1f9f733acca45a8f91070bf31b5b36f4.framework.js.unityweb",
+        codeUrl: buildUrl + "/4c9406a2f3b089f993c7ce8c69f881ee.wasm.unityweb",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "Cardito",
         productName: "Cardito Web",
@@ -655,15 +637,29 @@
             window.unityInstance = unityInstance;
 
             window.SendUnityDeviceId = function() {
-                if (unityInstance && unityInstance.SendMessage)
-                    unityInstance.SendMessage("RegisterManager", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
+                if (!unityInstance || !unityInstance.SendMessage) return;
+                unityInstance.SendMessage("RegisterManager", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
+                unityInstance.SendMessage("SplashController", "OnDeviceIdFromJS", window.CARDITO_DEVICE_ID);
             };
             
             window.SendUnityReferral = function() {
-              const ref = window.CARDITO_REF_CODE || localStorage.getItem("cardito_referral_code") || "";
-              if (!unityInstance || !unityInstance.SendMessage) return;
-              unityInstance.SendMessage("RegisterManager", "OnReferralCodeFromJS", ref);
-              unityInstance.SendMessage("SplashController", "OnReferralCodeFromJS", ref);
+              if (!window.CARDITO_REF_CODE) return;
+              const ref = window.CARDITO_REF_CODE || "";
+              let tries = 0;
+
+              const timer = setInterval(() => {
+                tries++;
+
+                try {
+                  if (unityInstance && unityInstance.SendMessage) {
+                    unityInstance.SendMessage("RegisterManager", "OnReferralCodeFromJS", ref);
+                    clearInterval(timer);
+                    return;
+                  }
+                } catch (e) {}
+
+                if (tries >= 30) clearInterval(timer); // ~3s
+              }, 100);
             };
 
           }).catch((msg) => console.error(msg));
